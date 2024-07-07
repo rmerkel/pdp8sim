@@ -30,7 +30,8 @@ enum class OpCode {
  * Constants
  ************************************************************************************************/
 
-const unsigned UINT12_MAX	=03777;
+const int	 UINT12_MAX		= +2047;
+const int	 UINT12_MIN		= -2048;
 
 /************************************************************************************************
  * Bit maskes
@@ -62,14 +63,15 @@ struct IR {
  * PDP8 Registers
  ************************************************************************************************/
 struct Registers {
-    uint16_t    pc      : 12;       // may expand to include df and if
-    uint16_t    ac      : 12;
-    uint16_t     l      :  1;
-    uint16_t    ma      : 12;       // need support for signed values?
-    uint16_t    md      : 12;
+    uint16_t    pc      : 12;       // Program Counter - may expand to include df and if
+    uint16_t    ac      : 12;		// ACcumulator register
+    uint16_t     l      :  1;		// Link register
+    uint16_t    ma      : 12;       // Memory address register
+    uint16_t    md      : 12;		// Memory data register
+	uint16_t	sr		: 12;		// Switch register
     IR          ir;
 
-    Registers() : pc{0}, ac{0}, l{0}, ma{0}, md{0}  {}
+    Registers() : pc{0}, ac{0}, l{0}, ma{0}, md{0}, sr{0}  {}
 };
 
 /********************************************************************************************//**
@@ -131,15 +133,14 @@ static const char* opcode(const OpCode op) {
  * Dump the processor state
  ************************************************************************************************/
 static void dump() {
-    cout    << state(s)  << ' ' << opcode(r.ir.op)                      << '\n';
-
     cout    << "PC: " << oct << setfill('0') << setw(4) << r.pc         << ' '
             <<  "L: "                                   << r.l          << ' '
-            << "AC: " << oct << setfill('0') << setw(4) << r.ac         << '\n';
-
-    cout    << "MA: " << oct << setfill('0') << setw(4) << r.ma         << ' '
+            << "AC: " << oct << setfill('0') << setw(4) << r.ac         << ' '
+    		<< "MA: " << oct << setfill('0') << setw(4) << r.ma         << ' '
             << "MD: " << oct << setfill('0') << setw(4) << r.md         << ' '  
-            << "IR: " << oct << setfill('0') << setw(4) << r.ir.u       << '\n';
+            << "IR: " << oct << setfill('0') << setw(4) << r.ir.u       << ' '
+    		<< "SR: " << oct << setfill('0') << setw(4) << r.sr         << ' '
+			<< "State: " << state(s)  << ' ' << opcode(r.ir.op)         << '\n';
 }
 
 /********************************************************************************************//**
@@ -215,6 +216,74 @@ void brk() {
 }
 
 /********************************************************************************************//**
+ * @return true if s is a number
+ ************************************************************************************************/
+static bool digit(const string& s) {
+	try {
+		const int i{std::stoi(s)};
+
+		if (i > UINT12_MAX || i < UINT12_MIN)
+			cerr << "'" << i << "i is out of range " << UINT12_MAX << " .. " << UINT12_MIN << '\n';
+
+		else
+			r.sr = i;
+
+	} catch (std::invalid_argument const& ex) {
+        return false;							// Ignore, not a "digit"
+
+   	} catch (std::out_of_range const& ex) {
+        std::cout << "std::out_of_range::what(): " << ex.what() << '\n';
+   	}	
+
+	return true;
+}
+
+/********************************************************************************************//**
+ *
+ ************************************************************************************************/
+static bool frontpanel() {
+	dump();
+	run = false;
+    cout << "> ";
+ 
+    string cmd = "";
+    if (!getline(cin, cmd))
+    	return true;			// Ctrl-D - exit
+
+//	cerr << "read: '" << cmd << "'\n";		// For testing only...
+
+	else if (cmd == "" || cmd == "c" || cmd == "cont")
+		run = true;
+
+	else if (cmd == "q" || cmd == "quit")
+		return true;			// "Quit/exit
+
+	else if (cmd == "?" || cmd == "h" || cmd == "help") {
+		cout << "number   -- Set Sr\n";
+		cout << "h[elp]   -- Print help\n";
+		cout << "cont     -- Continue\n";
+		cout << "q[uit]   -- Exit\n";
+		cout << "s[tart]  -- Start\n";
+		cout << "?        -- Same as help\n";
+		cout << "<return> -- Same as cont\n";
+		cout << "Ctrl-D   -- Same as q[uit]\n";
+
+	} else if (cmd == "s" || cmd == "start") {
+		r.l = false;
+		r.ac = r.md = r.ir.u = 0;
+		s = State::Fetch;
+		run = true;
+		
+	} else if (digit(cmd))
+        ;
+
+    else 
+		cerr << "unknown command: '" << cmd << "'\n";
+
+	return false;
+}
+
+/********************************************************************************************//**
  * Run the processor/debugger...
  ************************************************************************************************/
 int process() {
@@ -239,16 +308,8 @@ int process() {
 
             run = !sw.sstep && !sw.sinstr;
 
-        } else {
-            dump();
-            cout << "> ";
- 
-            string cmd;
-            if (!getline(cin, cmd))
-                return 0;
-
-            run = true;
-        }
+        } else if (frontpanel())
+			return 0;
     }
 }
 
