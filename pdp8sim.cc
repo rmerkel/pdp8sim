@@ -27,6 +27,13 @@ enum class OpCode {
 };
 
 /************************************************************************************************
+ * Constants
+ ************************************************************************************************/
+
+const unsigned UINT12_MAX	=03777;
+
+/************************************************************************************************
+ * Bit maskes
  ************************************************************************************************/
 
 const unsigned Page_Mask    = 07600;		///< PC Address Page address mask
@@ -54,7 +61,7 @@ struct IR {
 /********************************************************************************************//**
  * PDP8 Registers
  ************************************************************************************************/
-struct registers {
+struct Registers {
     uint16_t    pc      : 12;       // may expand to include df and if
     uint16_t    ac      : 12;
     uint16_t     l      :  1;
@@ -62,17 +69,17 @@ struct registers {
     uint16_t    md      : 12;
     IR          ir;
 
-    registers() : pc{0}, ac{0}, l{0}, ma{0}, md{0}  {}
+    Registers() : pc{0}, ac{0}, l{0}, ma{0}, md{0}  {}
 };
 
 /********************************************************************************************//**
  * Front Panel switches
  ************************************************************************************************/
-struct switches {
+struct Switches {
     bool        sstep   : 1;
     bool        sinstr  : 1;
 
-    switches() : sstep{true}, sinstr{true} {};      // defalt to true for now...
+    Switches() : sstep{false}, sinstr{false} {};
 };
 
 /********************************************************************************************//**
@@ -85,8 +92,8 @@ enum class State { Fetch, Defer, Execute, Break };
  ************************************************************************************************/
 
 static bool        run 			= false;
-static switches    sw;
-static registers   r;
+static Switches    sw;
+static Registers   r;
 static State       s			= State::Fetch;
 static unsigned    mem[4096];
     
@@ -123,7 +130,7 @@ static const char* opcode(const OpCode op) {
 /********************************************************************************************//**
  * Dump the processor state
  ************************************************************************************************/
-static void dump(const registers& r) {
+static void dump() {
     cout    << state(s)  << ' ' << opcode(r.ir.op)                      << '\n';
 
     cout    << "PC: " << oct << setfill('0') << setw(4) << r.pc         << ' '
@@ -136,27 +143,22 @@ static void dump(const registers& r) {
 }
 
 /********************************************************************************************//**
- * Fetch State
+ * Fetch next instruction
  ************************************************************************************************/
 void fetch() {
-    r.ir.u = mem[r.pc++];
-    s = State::Execute;
-
-    if (r.ir.p)
-        r.ma = r.pc & Page_Mask;
-     else
-        r.ma = 0;
+    r.ir.u = mem[r.pc++];				// fetch next instruction
+										// calc EA
+	r.ma = r.ir.p ? r.pc & Page_Mask : 0;
     r.ma += r.ir.addr;
 
-    if (r.ir.op == OpCode::IOT) {
+    if (r.ir.op == OpCode::IOT) {		// IOT?
         cout << "IOT";
         s = State::Fetch;
 
     } else if (r.ir.i)                  // ma is address of the operand
        s = State::Defer;
 
-    else if (r.ir.op == OpCode::JMP) {
-        cout << "JMP";
+    else if (r.ir.op == OpCode::JMP) {	// JMP direct?
         r.pc = r.ma;
         s = State::Defer;
 
@@ -168,7 +170,14 @@ void fetch() {
  * Defer state
  ************************************************************************************************/
 void defer() {
-    s = State::Fetch;
+	r.md = mem[r.ma];					// Fetch indirect operand
+
+	if (r.ir.op == OpCode::JMP) {
+		r.ac &= r.md;
+		s = State::Fetch;
+
+	} else
+		s = State::Execute;
 }
 
 /********************************************************************************************//**
@@ -181,7 +190,12 @@ void execute() {
             r.ac &= r.md;
             break;
 
-        case OpCode::TAD:   break;
+        case OpCode::TAD:
+			if (r.ac > UINT12_MAX - r.md)
+				r.l = !r.l;
+			r.ac += r.md;
+			break;
+			
         case OpCode::ISZ:   break;
         case OpCode::DCA:   break;
         case OpCode::JMS:   break;
@@ -201,13 +215,16 @@ void brk() {
 }
 
 /********************************************************************************************//**
- * The PDP8 simulator
+ * Run the processor/debugger...
  ************************************************************************************************/
-int main() {
+int process() {
+	run = false;					// Processor starts in idle mode...
+	sw.sinstr = sw.sstep = true;	// For debugging!!!!!
+
     for (;;) {
         if (run) {
-            do {
-                do {
+            do {					// Next instruction (mem[r.pc])
+                do {				// Next memory state
                     switch(s) {
                         case State::Fetch:      fetch();    break;
                         case State::Defer:      defer();    break;
@@ -215,13 +232,15 @@ int main() {
                         case State::Break:      brk();      break;
                         default: cerr << "unknown state!\n";
                     }
+
                 } while (!sw.sstep);
+
             } while (!sw.sinstr);
 
             run = !sw.sstep && !sw.sinstr;
 
         } else {
-            dump(r);
+            dump();
             cout << "> ";
  
             string cmd;
@@ -231,6 +250,11 @@ int main() {
             run = true;
         }
     }
+}
 
-    return 0;
+/********************************************************************************************//**
+ * The PDP8 simulator
+ ************************************************************************************************/
+int main() {
+	return process();
 }
