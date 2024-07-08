@@ -93,39 +93,41 @@ enum class State { Fetch, Defer, Execute, Break };
  * Processor State
  ************************************************************************************************/
 
-static bool        run 			= false;
-static Switches    sw;
-static Registers   r;
-static State       s			= State::Fetch;
-static unsigned    mem[4096];
+static bool        	run 		= false;
+static Switches    	sw;
+static Registers	r;
+static State       	s			= State::Fetch;
+static unsigned    	mem[4096];
+static unsigned		ncycles 	= 0;
+static unsigned		ninstrs		= 0;
     
 /********************************************************************************************//**
  * Return a Cyce as a string
  ************************************************************************************************/
 static const char* state(const State state) {
     switch (state) {
-        case State::Fetch:      return "Fetch";
-        case State::Defer:      return "Defer";
-        case State::Execute:    return "Execute";
-        case State::Break:      return "Break";
-        default:                return "Unknown State!";
+    case State::Fetch:      return "Fetch";
+    case State::Defer:      return "Defer";
+    case State::Execute:    return "Execute";
+    case State::Break:      return "Break";
+    default:                return "Unknown State!";
     }
 }
 
 /********************************************************************************************//**
  * Return an OpCode as a string
  ************************************************************************************************/
-static const char* opcode(const OpCode op) {
-    switch (op) {
-        case OpCode::AND:   return "AND";
-        case OpCode::TAD:   return "TAD";
-        case OpCode::ISZ:   return "ISZ";
-        case OpCode::DCA:   return "DCA";
-        case OpCode::JMS:   return "JMS";
-        case OpCode::JMP:   return "JMP";
-        case OpCode::IOT:   return "IOT";
-        case OpCode::OPR:   return "OPR";
-        default:            return "Undefined OpCode!";
+static const char* opcode() {
+    switch (r.ir.op) {
+    case OpCode::AND:   return "AND";
+    case OpCode::TAD:   return "TAD";
+    case OpCode::ISZ:   return "ISZ";
+    case OpCode::DCA:   return "DCA";
+    case OpCode::JMS:   return "JMS";
+    case OpCode::JMP:   return "JMP";
+    case OpCode::IOT:   return "IOT";
+    case OpCode::OPR:   return "OPR";
+    default:            return "Undefined OpCode!";
     }
 }
 
@@ -133,14 +135,25 @@ static const char* opcode(const OpCode op) {
  * Dump the processor state
  ************************************************************************************************/
 static void dump() {
-    cout    << "PC: " << oct << setfill('0') << setw(4) << r.pc         << ' '
-            <<  "L: "                                   << r.l          << ' '
-            << "AC: " << oct << setfill('0') << setw(4) << r.ac         << ' '
-    		<< "MA: " << oct << setfill('0') << setw(4) << r.ma         << ' '
-            << "MD: " << oct << setfill('0') << setw(4) << r.md         << ' '  
-            << "IR: " << oct << setfill('0') << setw(4) << r.ir.u       << ' '
-    		<< "SR: " << oct << setfill('0') << setw(4) << r.sr         << ' '
-			<< "State: " << state(s)  << ' ' << opcode(r.ir.op)         << '\n';
+	// Processor state, switches, disassemble
+	cout	<< opcode() << ' ' << state(s);
+	if (sw.sinstr)
+		cout << " SInstr";
+	if (sw.sstep)
+		cout << " SStep";
+	cout << '\n';
+	
+	// registers
+    cout    << "PC " << oct << setfill('0') << setw(4) << r.pc         << ' '
+			<<  "L "                                   << r.l          << ' '
+            << "AC " << oct << setfill('0') << setw(4) << r.ac         << ' '
+    		<< "MA " << oct << setfill('0') << setw(4) << r.ma         << ' '
+            << "MD " << oct << setfill('0') << setw(4) << r.md         << ' '  
+            << "IR " << oct << setfill('0') << setw(4) << r.ir.u       << ' '
+    		<< "SR " << oct << setfill('0') << setw(4) << r.sr         << '\n';
+
+	// counters
+	cout << "# instrs " << ninstrs << " # cycles " << ncycles << " (" << ncycles * 1.5 << "us)\n";
 }
 
 /********************************************************************************************//**
@@ -187,22 +200,22 @@ void defer() {
 void execute() {
     r.md = mem[r.ma];
     switch(r.ir.op) {
-        case OpCode::AND:
-            r.ac &= r.md;
-            break;
+    case OpCode::AND:
+    	r.ac &= r.md;
+        break;
 
-        case OpCode::TAD:
-			if (r.ac > UINT12_MAX - r.md)
-				r.l = !r.l;
-			r.ac += r.md;
-			break;
+	case OpCode::TAD:
+		if (r.ac > UINT12_MAX - r.md)
+			r.l = !r.l;
+		r.ac += r.md;
+		break;
 			
-        case OpCode::ISZ:   break;
-        case OpCode::DCA:   break;
-        case OpCode::JMS:   break;
-        case OpCode::JMP:   break;
-        case OpCode::IOT:   break;
-        case OpCode::OPR:   break;
+	case OpCode::ISZ:   break;
+    case OpCode::DCA:   break;
+    case OpCode::JMS:   break;
+    case OpCode::JMP:   break;
+    case OpCode::IOT:   break;
+    case OpCode::OPR:   break;
     }
 
     s = State::Fetch;
@@ -239,11 +252,10 @@ static bool digit(const string& s) {
 }
 
 /********************************************************************************************//**
- *
+ * @return true to exit the simulator
  ************************************************************************************************/
 static bool frontpanel() {
 	dump();
-	run = false;
     cout << "> ";
  
     string cmd = "";
@@ -252,34 +264,35 @@ static bool frontpanel() {
 
 //	cerr << "read: '" << cmd << "'\n";		// For testing only...
 
-	else if (cmd == "" || cmd == "c" || cmd == "cont")
-		run = true;
-
-	else if (cmd == "q" || cmd == "quit")
-		return true;			// "Quit/exit
-
+	else if (cmd == "" || cmd == "c" || cmd == "cont")	run = true;
 	else if (cmd == "?" || cmd == "h" || cmd == "help") {
-		cout << "number   -- Set Sr\n";
-		cout << "h[elp]   -- Print help\n";
-		cout << "cont     -- Continue\n";
-		cout << "q[uit]   -- Exit\n";
-		cout << "s[tart]  -- Start\n";
-		cout << "?        -- Same as help\n";
-		cout << "<return> -- Same as cont\n";
-		cout << "Ctrl-D   -- Same as q[uit]\n";
+		cout	<< "number      -- Set Sr\n"
+				<< "?|h[elp]    -- Print help\n"
+				<< "c[ont]      -- Continue\n"
+				<< "q[uit]      -- Exit\n"
+				<< "[no]sinstr  -- Single Step\n"
+				<< "[no]sstep   -- Single Instruction\n"
+				<< "s[tart]     -- Start\n"
+				<< "<return>    -- Same as cont\n"
+				<< "<ctrl-d>    -- Same as q[uit]\n";
 
-	} else if (cmd == "s" || cmd == "start") {
+	}
+	else if (cmd == "nosinstr")						    sw.sinstr = false;
+	else if (cmd == "nosstep")							sw.sstep = false;
+	else if (cmd == "q" || cmd == "quit")				return true;
+	else if (cmd == "sinstr")							sw.sinstr = true;
+	else if (cmd == "sstep")							sw.sstep = true;
+	else if (cmd == "s" || cmd == "start") {
 		r.l = false;
 		r.ac = r.md = r.ir.u = 0;
 		s = State::Fetch;
 		run = true;
 		
-	} else if (digit(cmd))
-        ;
-
+	}
+	else if (digit(cmd))								;
     else 
 		cerr << "unknown command: '" << cmd << "'\n";
-
+        
 	return false;
 }
 
@@ -288,28 +301,36 @@ static bool frontpanel() {
  ************************************************************************************************/
 int process() {
 	run = false;					// Processor starts in idle mode...
-	sw.sinstr = sw.sstep = true;	// For debugging!!!!!
 
     for (;;) {
-        if (run) {
+        while (run) {
             do {					// Next instruction (mem[r.pc])
                 do {				// Next memory state
                     switch(s) {
-                        case State::Fetch:      fetch();    break;
-                        case State::Defer:      defer();    break;
-                        case State::Execute:    execute();  break;
-                        case State::Break:      brk();      break;
-                        default: cerr << "unknown state!\n";
+                    case State::Fetch:      fetch();    break;
+                    case State::Defer:      defer();    break;
+                    case State::Execute:    execute();  break;
+                    case State::Break:      brk();      break;
+                    default: cerr << "unknown state!\n";
                     }
 
-                } while (!sw.sstep);
+					++ncycles;
 
-            } while (!sw.sinstr);
+                } while (!sw.sstep && s != State::Fetch);
+
+				if (s == State::Fetch)
+					++ninstrs;
+
+            } while (!sw.sinstr && !sw.sstep);
 
             run = !sw.sstep && !sw.sinstr;
 
-        } else if (frontpanel())
-			return 0;
+        }
+
+		while (!run) {
+			if (frontpanel())
+				return 0;
+		}
     }
 }
 
