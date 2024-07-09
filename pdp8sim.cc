@@ -4,6 +4,7 @@
  * A PDP-8 Simulator
  ************************************************************************************************/
 
+#include <cassert>
 #include <cstdint>
 #include <iomanip>
 #include <ios>
@@ -13,7 +14,7 @@
 using namespace std;
 
 /********************************************************************************************//**
- * Operation codes for basic instructions
+ * Operation codes for the basic instructions
  ************************************************************************************************/
 enum class OpCode {
     AND = 0,
@@ -25,6 +26,46 @@ enum class OpCode {
     IOT = 6,
     OPR = 7
 };
+
+/********************************************************************************************//**
+ * Return op as a string
+ ************************************************************************************************/
+static const char* asString(OpCode op) {
+    switch (op) {
+    case OpCode::AND:   return "AND";
+    case OpCode::TAD:   return "TAD";
+    case OpCode::ISZ:   return "ISZ";
+    case OpCode::DCA:   return "DCA";
+    case OpCode::JMS:   return "JMS";
+    case OpCode::JMP:   return "JMP";
+    case OpCode::IOT:   return "IOT";
+    case OpCode::OPR:   return "OPR";
+    default:            return "Undefined OpCode!";
+    }
+}
+
+/********************************************************************************************//**
+ * Major Memory states
+ ************************************************************************************************/
+enum class State {
+	Fetch,
+	Defer,
+	Execute,
+	Break
+};
+
+/********************************************************************************************//**
+ * Return a state as a string
+ ************************************************************************************************/
+static const char* asString(const State state) {
+    switch (state) {
+    case State::Fetch:      return "Fetch";
+    case State::Defer:      return "Defer";
+    case State::Execute:    return "Execute";
+    case State::Break:      return "Break";
+    default:                return "Unknown State!";
+    }
+}
 
 /************************************************************************************************
  * Constants
@@ -38,26 +79,11 @@ const int	 UINT12_MIN		= -2048;
  ************************************************************************************************/
 
 const unsigned Page_Mask    = 07600;		///< PC Address Page address mask
-
-/********************************************************************************************//**
- * Instruction Register
- *
- * @warning Assumes bits are assigned left to right
- ************************************************************************************************/
-struct IR {
-    union {
-        uint16_t          u;				///< As an unsigned
-        struct {
-			uint16_t			: 4;		// Padding
-            OpCode        op    : 3;		///< OpCode
-            uint16_t       i    : 1;		///< Indirect bit; 0 = Direct, 1 = Indirect
-            uint16_t       p    : 1;		///< Page bit; 0 = Page zero, 1 = Current page
-            uint16_t    addr    : 7;		///< Address; page offset
-        };
-    };
-
-    IR() : u{0} {}							///< Defaults to AND 0
-};
+const unsigned Op_Mask		= 07000;		///< OpCode mask
+const unsigned Op_Shift		= 9;			///< OpCode shift
+const unsigned I_Mask		= 00400;		///< Indirect bit
+const unsigned P_Mask		= 00200;		///< Page bit
+const unsigned Addr_Mask	= 00177;		///< Address/page offset mask
 
 /********************************************************************************************//**
  * PDP8 Registers
@@ -69,9 +95,9 @@ struct Registers {
     uint16_t    ma      : 12;       // Memory address register
     uint16_t    md      : 12;		// Memory data register
 	uint16_t	sr		: 12;		// Switch register
-    IR          ir;
+	OpCode		ir;
 
-    Registers() : pc{0}, ac{0}, l{0}, ma{0}, md{0}, sr{0}  {}
+    Registers() : pc{0}, ac{0}, l{0}, ma{0}, md{0}, sr{0}, ir{OpCode::AND}  {}
 };
 
 /********************************************************************************************//**
@@ -83,11 +109,6 @@ struct Switches {
 
     Switches() : sstep{false}, sinstr{false} {};
 };
-
-/********************************************************************************************//**
- * Major Memory states
- ************************************************************************************************/
-enum class State { Fetch, Defer, Execute, Break };
 
 /************************************************************************************************
  * Processor State
@@ -102,77 +123,30 @@ static unsigned		ncycles 	= 0;
 static unsigned		ninstrs		= 0;
     
 /********************************************************************************************//**
- * Return a Cyce as a string
- ************************************************************************************************/
-static const char* state(const State state) {
-    switch (state) {
-    case State::Fetch:      return "Fetch";
-    case State::Defer:      return "Defer";
-    case State::Execute:    return "Execute";
-    case State::Break:      return "Break";
-    default:                return "Unknown State!";
-    }
-}
-
-/********************************************************************************************//**
- * Return an OpCode as a string
- ************************************************************************************************/
-static const char* opcode() {
-    switch (r.ir.op) {
-    case OpCode::AND:   return "AND";
-    case OpCode::TAD:   return "TAD";
-    case OpCode::ISZ:   return "ISZ";
-    case OpCode::DCA:   return "DCA";
-    case OpCode::JMS:   return "JMS";
-    case OpCode::JMP:   return "JMP";
-    case OpCode::IOT:   return "IOT";
-    case OpCode::OPR:   return "OPR";
-    default:            return "Undefined OpCode!";
-    }
-}
-
-/********************************************************************************************//**
- * Dump the processor state
- ************************************************************************************************/
-static void dump() {
-	// Processor state, switches, disassemble
-	cout	<< opcode() << ' ' << state(s);
-	if (sw.sinstr)
-		cout << " SInstr";
-	if (sw.sstep)
-		cout << " SStep";
-	cout << '\n';
-	
-	// registers
-    cout    << "PC " << oct << setfill('0') << setw(4) << r.pc         << ' '
-			<<  "L "                                   << r.l          << ' '
-            << "AC " << oct << setfill('0') << setw(4) << r.ac         << ' '
-    		<< "MA " << oct << setfill('0') << setw(4) << r.ma         << ' '
-            << "MD " << oct << setfill('0') << setw(4) << r.md         << ' '  
-            << "IR " << oct << setfill('0') << setw(4) << r.ir.u       << ' '
-    		<< "SR " << oct << setfill('0') << setw(4) << r.sr         << '\n';
-
-	// counters
-	cout << "# instrs " << ninstrs << " # cycles " << ncycles << " (" << ncycles * 1.5 << "us)\n";
-}
-
-/********************************************************************************************//**
- * Fetch next instruction
+ * Fetch next instruction, handle JMP direct
  ************************************************************************************************/
 void fetch() {
-    r.ir.u = mem[r.pc++];				// fetch next instruction
-										// calc EA
-	r.ma = r.ir.p ? r.pc & Page_Mask : 0;
-    r.ma += r.ir.addr;
+	r.md 			= mem[r.pc++];
+	r.ir 			= static_cast<OpCode>((r.md & Op_Mask)	>> Op_Shift);
+	const bool i	= (r.md & I_Mask) == I_Mask;
+	const bool p	= (r.md & P_Mask) == P_Mask;
+	unsigned addr	= r.md & Addr_Mask;
 
-    if (r.ir.op == OpCode::IOT) {		// IOT?
-        cout << "IOT";
+	r.ma = p ? r.pc & Page_Mask : 0;
+	r.ma |= addr;
+
+    if (r.ir == OpCode::IOT) {			// IOT?
+		assert(false);					// IOT not implemented
         s = State::Fetch;
 
-    } else if (r.ir.i)                  // ma is address of the operand
+	} else if (r.ir == OpCode::OPR) {	// OPR?
+		assert(false);					// OPR not implementated
+		s = State::Fetch;
+
+    } else if (i)                  		// ma is address of the operand?
        s = State::Defer;
 
-    else if (r.ir.op == OpCode::JMP) {	// JMP direct?
+    else if (r.ir == OpCode::JMP) {		// JMP direct?
         r.pc = r.ma;
         s = State::Defer;
 
@@ -185,9 +159,12 @@ void fetch() {
  ************************************************************************************************/
 void defer() {
 	r.md = mem[r.ma];					// Fetch indirect operand
+	if (r.ma >= 010 && r.ma <= 017) {
+		mem[r.ma] = ++r.md;				// Auto increment
+	}
 
-	if (r.ir.op == OpCode::JMP) {
-		r.ac &= r.md;
+	if (r.ir == OpCode::JMP) {			// JMP indirect?
+		r.pc = r.md;
 		s = State::Fetch;
 
 	} else
@@ -199,7 +176,7 @@ void defer() {
  ************************************************************************************************/
 void execute() {
     r.md = mem[r.ma];
-    switch(r.ir.op) {
+    switch(r.ir) {
     case OpCode::AND:
     	r.ac &= r.md;
         break;
@@ -210,12 +187,29 @@ void execute() {
 		r.ac += r.md;
 		break;
 			
-	case OpCode::ISZ:   break;
-    case OpCode::DCA:   break;
-    case OpCode::JMS:   break;
-    case OpCode::JMP:   break;
-    case OpCode::IOT:   break;
-    case OpCode::OPR:   break;
+	case OpCode::ISZ:
+		assert(false);		// Not implementated
+		break;
+
+    case OpCode::DCA:
+		assert(false);		// Not implementated
+		break;
+
+    case OpCode::JMS:
+		assert(false);		// Not implementated
+		break;
+
+    case OpCode::JMP:		// Not expected in this state!
+		assert(false);
+		break;
+
+    case OpCode::IOT:
+		assert(false);		// Not implementated
+		break;
+
+    case OpCode::OPR:
+		assert(false);		// Not implementated
+		break;
     }
 
     s = State::Fetch;
@@ -226,6 +220,30 @@ void execute() {
  ************************************************************************************************/
 void brk() {
     s = State::Fetch;
+}
+
+/********************************************************************************************//**
+ * Dump the processor state
+ ************************************************************************************************/
+static void dump() {
+	// Processor state, switches, disassemble
+	cout	<< asString(r.ir) << ' ' << asString(s);
+	if (sw.sinstr)
+		cout << " SInstr";
+	if (sw.sstep)
+		cout << " SStep";
+	cout << '\n';
+	
+	// registers
+    cout    << "PC " << oct << setfill('0') << setw(4) << r.pc  << ' '
+			<<  "L "                                   << r.l   << ' '
+            << "AC " << oct << setfill('0') << setw(4) << r.ac  << ' '
+    		<< "MA " << oct << setfill('0') << setw(4) << r.ma  << ' '
+            << "MD " << oct << setfill('0') << setw(4) << r.md  << ' '  
+    		<< "SR " << oct << setfill('0') << setw(4) << r.sr  << '\n';
+
+	// counters
+	cout << "# instrs " << ninstrs << " # cycles " << ncycles << " (" << ncycles * 1.5 << "us)\n";
 }
 
 /********************************************************************************************//**
@@ -283,13 +301,14 @@ static bool frontpanel() {
 	else if (cmd == "sinstr")							sw.sinstr = true;
 	else if (cmd == "sstep")							sw.sstep = true;
 	else if (cmd == "s" || cmd == "start") {
-		r.l = false;
-		r.ac = r.md = r.ir.u = 0;
-		s = State::Fetch;
-		run = true;
+		r.l				= false;
+		r.ac = r.md 	= 0;
+		s 				= State::Fetch;
+		run 			= true;
 		
 	}
-	else if (digit(cmd))								;
+	else if (digit(cmd))
+		;
     else 
 		cerr << "unknown command: '" << cmd << "'\n";
         
@@ -324,7 +343,6 @@ int process() {
             } while (!sw.sinstr && !sw.sstep);
 
             run = !sw.sstep && !sw.sinstr;
-
         }
 
 		while (!run) {
@@ -338,5 +356,14 @@ int process() {
  * The PDP8 simulator
  ************************************************************************************************/
 int main() {
+	mem[00000] = 05410;	// JMP I 00010
+	mem[00001] = 05410;	// JMP I 00010
+	mem[00002] = 05410;	// JMP I 00010
+	mem[00003] = 05410;	// JMP I 00010
+	mem[00004] = 05410;	// JMP I 00010
+	mem[00005] = 05410;	// JMP I 00010
+	mem[00006] = 05410;	// JMP I 00010
+	mem[00007] = 05410;	// JMP I 00010
+
 	return process();
 }
