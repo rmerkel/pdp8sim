@@ -123,6 +123,66 @@ static unsigned		ncycles 	= 0;
 static unsigned		ninstrs		= 0;
     
 /********************************************************************************************//**
+ * OPeRate - Group 1
+ ************************************************************************************************/
+static void oper_group1(unsigned instrs) {
+	const bool twice = (instrs & 00020) == 00002;
+
+	// Sequence 1
+
+	if (	instrs	==	07000)
+		;								// NOP
+
+	else if (instrs	&	00200)
+		r.ac = 0;						// CLA
+
+	else if (instrs	&	00100)
+		r.l = 0;						// CLL
+
+	// Sequence 2
+
+	if (	instrs	&	00040)
+		r.ac = ~r.ac;					// CMA
+
+	else if (instrs	&	00020)
+		r.l = ~r.l;						// CML
+
+	// Sequence 3
+
+	if (	instrs	&	00001)
+		++r.ac;							// IAC
+
+	// Sequence 4
+	
+	if (	instrs	&	00010) {
+		assert(false);					// Not implementated
+
+		if (twice)
+			; 							// RTR
+		else
+			;							// RAR
+
+	} else if (instrs &	00004) {
+		assert(false);					// Not implementated
+
+		if (twice)
+			; 							// RTL
+		else
+			; 							// RAL
+	}
+}
+
+/********************************************************************************************//**
+ * OPeRate
+ ************************************************************************************************/
+static void oper(unsigned instrs) {
+	if ((instrs & 00400) == 0)
+		oper_group1(instrs);
+	else
+		assert(false);						// Not implenentated
+}
+
+/********************************************************************************************//**
  * Fetch next instruction, handle JMP direct
  ************************************************************************************************/
 void fetch() {
@@ -140,7 +200,7 @@ void fetch() {
         s = State::Fetch;
 
 	} else if (r.ir == OpCode::OPR) {	// OPR?
-		assert(false);					// OPR not implementated
+		oper(r.ma & 00777);
 		s = State::Fetch;
 
     } else if (i)                  		// ma is address of the operand?
@@ -176,6 +236,7 @@ void defer() {
  ************************************************************************************************/
 void execute() {
     r.md = mem[r.ma];
+
     switch(r.ir) {
     case OpCode::AND:
     	r.ac &= r.md;
@@ -188,15 +249,18 @@ void execute() {
 		break;
 			
 	case OpCode::ISZ:
-		assert(false);		// Not implementated
+		mem[r.ma] = ++r.md;
+		if (r.md == 0) ++r.pc;
 		break;
 
     case OpCode::DCA:
-		assert(false);		// Not implementated
+		mem[r.ma] = r.ac;
+		r.ac = 0;
 		break;
 
     case OpCode::JMS:
-		assert(false);		// Not implementated
+		mem[r.ma] = r.pc;
+		r.pc = r.ma++;
 		break;
 
     case OpCode::JMP:		// Not expected in this state!
@@ -204,11 +268,11 @@ void execute() {
 		break;
 
     case OpCode::IOT:
-		assert(false);		// Not implementated
+		assert(false);		// Not expected in this state!
 		break;
 
-    case OpCode::OPR:
-		assert(false);		// Not implementated
+    case OpCode::OPR:		// Not expected in this state!
+		assert(false);
 		break;
     }
 
@@ -356,14 +420,13 @@ int process() {
  * The PDP8 simulator
  ************************************************************************************************/
 int main() {
-	mem[00000] = 05410;	// JMP I 00010
-	mem[00001] = 05410;	// JMP I 00010
-	mem[00002] = 05410;	// JMP I 00010
-	mem[00003] = 05410;	// JMP I 00010
-	mem[00004] = 05410;	// JMP I 00010
-	mem[00005] = 05410;	// JMP I 00010
-	mem[00006] = 05410;	// JMP I 00010
-	mem[00007] = 05410;	// JMP I 00010
+	mem[00000] = 05401;	// JMP I 00001
+	mem[00001] = 00200;
+
+	mem[00200] = 00410;	// AND I 00000
+	mem[00201] = 00410;	// AND I 00000
+	mem[00202] = 07402;	// HALT
+	
 
 	return process();
 }

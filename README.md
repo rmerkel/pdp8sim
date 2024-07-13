@@ -1,7 +1,7 @@
-# pdp8sim
-A PDP-8 Simulator
+## pdp8sim
+A PDP-8 Simulator, v0.0
 
-# PDP-8/I Major State Flow Diagram
+## PDP-8/I Major State Flow Diagram
 
 	   |<---- 1 memory cycle ----->|<---- 1 memory cycle ---->|<---- 1 memory cycle ---->|
 	
