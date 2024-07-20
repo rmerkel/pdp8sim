@@ -394,47 +394,6 @@ void brk() {
     s = State::Fetch;
 }
 
-#if 0	// currently unused... but maybe?
-/********************************************************************************************//**
- * Decode a instruction
- ************************************************************************************************/
-static Decoded decode(unsigned instr) {
-	Decoded d;
-	d.op		= static_cast<OpCode>((instr & Op_Mask)	>> Op_Shift);
-	d.i		= (instr & I_Mask) == I_Mask;
-	d.p		= (instr & P_Mask) == P_Mask;
-	unsigned	addr	= instr & Addr_Mask;
-
-	d.eaddr	= d.p ? r.pc & Page_Mask : 0;
-	d.eaddr |= addr;
-	d.bits = instr & 00777;
-
-	return d;
-}
-
-/********************************************************************************************//**
- * disasmble the the next instruction
- ************************************************************************************************/
-static void disasm(unsigned addr, unsigned instr) {
-	addr &= 07777;
-	instr &= 07777;
-	const Decoded d = decode(instr);
-
-	cout << oct	<< setfill('0')	<< setw(4) 	<< addr << ' ' << asString(d.op) << ' ';
-	switch (d.op) {
-		case OpCode::OPR:
-		case OpCode::IOT:
-			cout << oct	<< setfill('0')	<< setw(3) 	<< d.bits;
-			break;
-
-		default:
-			if (d.i)
-				cout << "I ";
-			cout  << oct << setfill('0') << setw(4) << d.eaddr;
-	}
-}
-#endif
-
 /********************************************************************************************//**
  * Dump the processor state
  *
@@ -473,16 +432,6 @@ static void dump(bool compact = false) {
 				<< "L " << r.l	<<    " AC " << oct << setfill('0') << setw(4) << r.ac  << '\n' 
     			<< 				   "    SR " << oct << setfill('0') << setw(4) << r.sr  << '\n';
 	}
-
-#if 0
-	if (ninstrs == 0)					// kluge to handle initial state, i.e, no previous instruction
-		disasm(r.pc, mem[r.pc]);
-	else
-		disasm(r.pc-1, mem[r.pc-1]);
-
-	cout	<< "\t/"  << ninstrs << " instrs "	<< ncycles << " cycles " << '(' << ncycles * 1.5 << "us)\n";
-#endif
-
 }
 
 /********************************************************************************************//**
