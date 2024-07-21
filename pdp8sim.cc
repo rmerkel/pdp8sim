@@ -549,7 +549,7 @@ int process() {
 /********************************************************************************************//**
  * Load a BIN file into memory
  ************************************************************************************************/
-static bool load_BIN (const char* filename) {
+static bool load_BIN (const string& filename) {
 	enum class BIN_State { Leader, OriginMSB, OriginLSB, DataMSB, DataLSB, Trailer };
 
 	ifstream ifs{filename};
@@ -613,13 +613,46 @@ static bool load_BIN (const char* filename) {
 }
 
 /********************************************************************************************//**
+ * Write an help diagnostic to standard error.
+ ************************************************************************************************/
+static void help() {
+	cerr	<< "Usage: " << progName << " [options... | filenames...]\n"
+			<< "Where options is zero or more of:\n"
+			<< "-h|?     -- print this message, and return 1\n"
+			<< "-v       -- print the version, and return 1\n"
+			<< '\n'
+			<< "And where filenames is zero or more program file names to load in BIN format\n";
+}
+
+
+/********************************************************************************************//**
  * The PDP8 simulator
  ************************************************************************************************/
 int main (int argc, char** argv) {
 	for (int argn = 1; argn < argc; ++argn) {
-		const char* filename = argv[argn];
+		const string arg = argv[argn];
 
-		if (!load_BIN(filename))
+		if (arg == "")
+			continue;
+
+		if (arg == "-")
+			cerr << progName << ": unknown option '-',\n";
+
+		if (arg[0] == '-') {
+			for (auto i = arg.begin() + 1; i != arg.end(); ++i) {
+				char c = *i;
+
+				switch(c) {
+					case '?': case 'h': help();			return 1;
+					case 'v': cout << "version 0.1\n";	return 1;
+					default:
+						cerr << progName << ": unknown option '" << c << "'.\n";
+						return 1;
+				}
+			}
+
+			
+		} else if (!load_BIN(arg))
 			return 1;
 	}
 
