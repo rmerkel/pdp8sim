@@ -1,0 +1,7 @@
+# Listings
+*.lst
+
+# Executables
+*.rim
+*.bin
+

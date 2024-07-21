@@ -1,13 +1,17 @@
+
+/ Intorduction to Programming, 2nd Ed 1970
+/ "Coding a Program, Symbolic Addresses, pg 3-7
+
 *200
-START,	CLA CLL
-		TAD	A
-		CIA
-		DCA TALLY
-MULT,	TAD B
-		ISZ TALLY
-		JMP MULT
-		HLT
-A,		0022
-B,		0044
-TALLY,	0000
+START,  CLA CLL
+        TAD     A
+        CIA
+        DCA TALLY
+MULT,   TAD B
+        ISZ TALLY
+        JMP MULT
+        HLT
+A,      0022
+B,      0044
+TALLY,  0000
 $
