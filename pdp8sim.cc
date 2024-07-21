@@ -14,6 +14,8 @@
 
 using namespace std;
 
+static const char* progName = "pdp8sim";
+
 /********************************************************************************************//**
  * Operation codes for the basic instructions
  ************************************************************************************************/
@@ -543,109 +545,84 @@ int process() {
     }
 }
 
-enum class BIN_State { Leader, OriginMSB, OriginLSB, DataMSB, DataLSB };
-#if 0
-static const char* toString(BIN_State s)
-{
-	switch(s) {
-		case BIN_State::Leader:		return "Leader";	break;
-		case BIN_State::OriginMSB:	return "OriginMSB";	break;
-		case BIN_State::OriginLSB:	return "OriginLSB";	break;
-		case BIN_State::DataMSB:	return "DataMSB";	break;
-		case BIN_State::DataLSB:	return "DataLSB";	break;
-		default:	assert(false);	return "Unknown";
+
+/********************************************************************************************//**
+ * Load a BIN file into memory
+ ************************************************************************************************/
+static bool load_BIN (const char* filename) {
+	enum class BIN_State { Leader, OriginMSB, OriginLSB, DataMSB, DataLSB, Trailer };
+
+	ifstream ifs{filename};
+	if (!ifs) {
+		cerr << progName << ": can't open '" << filename << "'!\n";
+		return false;
 	}
+
+	const unsigned BIN_LEADER 		= 00200;
+	const unsigned BIN_ORG_Mask		= 00100;
+	const unsigned BIN_DATA_Mask	= 00077;
+	const unsigned BIN_MSB_Shift	= 6;
+
+	unsigned	data = 0;
+	uint8_t		byte;
+	char		c;
+	BIN_State	s = BIN_State::DataMSB;
+
+	while (ifs.get(c)) {
+		byte = static_cast<uint8_t>(c);
+
+		if (byte == BIN_LEADER)
+			continue;
+
+		if ((byte & BIN_ORG_Mask) == BIN_ORG_Mask)
+			s = BIN_State::OriginMSB;
+
+		switch (s) {
+			case BIN_State::Leader:
+				assert(false);
+				break;
+
+			case BIN_State::OriginMSB:
+				r.pc = (byte & BIN_DATA_Mask) << BIN_MSB_Shift;
+				s = BIN_State::OriginLSB;
+				break;
+
+			case BIN_State::OriginLSB:
+				r.pc |= byte;
+				s = BIN_State::DataMSB;
+				break;
+
+			case BIN_State::DataMSB:
+				data = (byte & BIN_DATA_Mask) << BIN_MSB_Shift;
+				s = BIN_State::DataLSB;
+				break;
+
+			case BIN_State::DataLSB:
+				data |= byte;
+				mem[r.pc] = data;
+				mem[++r.pc] = data;
+				s = BIN_State::DataMSB;
+				break;
+
+			default:
+				assert(false);
+		}
+	}
+
+	return true;
 }
-#endif
 
 /********************************************************************************************//**
  * The PDP8 simulator
  ************************************************************************************************/
 int main (int argc, char** argv) {
-	const char* progname = argv[0];
+	for (int argn = 1; argn < argc; ++argn) {
+		const char* filename = argv[argn];
 
-	if (argc == 2) {
-		const char* ifile = argv[1];
-
-		ifstream ifs{ifile};
-		if (!ifs) {
-			cerr << progname << ": can't open '" << ifile << "'!\n";
+		if (!load_BIN(filename))
 			return 1;
-		}
-
-		const unsigned BIN_LEADER 		= 00200;
-		const unsigned BIN_ORG_Mask		= 00100;
-		const unsigned BIN_DATA_Mask	= 00077;
-		const unsigned BIN_MSB_Shift	= 6;
-
-		unsigned	loc = 0;
-		unsigned	data = 0;
-		uint8_t		byte;
-		char		c;
-		BIN_State	s = BIN_State::DataMSB;
-
-		while (ifs.get(c)) {
-			byte = static_cast<uint8_t>(c);
-
-			if (byte == BIN_LEADER)
-				continue;
-
-			if ((byte & BIN_ORG_Mask) == BIN_ORG_Mask)
-				s = BIN_State::OriginMSB;
-
-//			cout << "State: " << toString(s) << " read: " << oct << setfill('0') << setw(3) << static_cast<unsigned>(byte);
-
-			switch (s) {
-				case BIN_State::Leader:
-					assert(false);
-					break;
-
-				case BIN_State::OriginMSB:
-					loc = (byte & BIN_DATA_Mask) << BIN_MSB_Shift;
-//					cout << " Origin (1st byte) " << oct << setfill('0') << setw(3) << loc;
-					s = BIN_State::OriginLSB;
-					break;
-
-				case BIN_State::OriginLSB:
-					loc |= byte;
-//					cout << " Origin " << oct << setfill('0') << setw(3) << loc;
-					s = BIN_State::DataMSB;
-					break;
-
-				case BIN_State::DataMSB:
-					data = (byte & BIN_DATA_Mask) << BIN_MSB_Shift;
-//					cout << " Data (1st byte) " << oct << setfill('0') << setw(3) << data;
-					s = BIN_State::DataLSB;
-					break;
-
-				case BIN_State::DataLSB:
-					data |= byte;
-					mem[loc] = data;
-//					cout << " mem[" << oct << setfill('0') << setw(4) << loc << "] = "
-//						<< oct << setfill('0') << setw(4) << data << '\n';
-					mem[++loc] = data;
-					s = BIN_State::DataMSB;
-					break;
-
-				default:
-					assert(false);
-			}
-//			cout << '\n';
-		};
-
-	} else {
-		mem[00200] = 07300;		// tally.lst
-		mem[00201] = 01210;
-		mem[00202] = 07041;
-		mem[00203] = 03212;
-		mem[00204] = 01211;
-		mem[00205] = 02212;
-		mem[00206] = 05204;
-		mem[00207] = 07402;
-		mem[00210] = 00022;
-		mem[00211] = 00044;
-		mem[00212] = 00000;
 	}
 
 	return process();
 }
+
