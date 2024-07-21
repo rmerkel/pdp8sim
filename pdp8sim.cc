@@ -112,7 +112,7 @@ const unsigned 	GRP2_SNA	= 07450;		///< Skip on plus AC, sequence 1
 const unsigned	GRP2_SNL	= 07420;		///< Skip on non-zero AC, sequence 1
 const unsigned	GRP2_SZL	= 07430;		///< Skip on zero link, sequence 1
 const unsigned	GRP2_SKP	= 07410;		///< Skip unconditionally, sequence 1
-const unsigned	GRP2_OSR	= 07402;		///< Inclusive OR, switch register with AC, sequence 3
+const unsigned	GRP2_OSR	= 07404;		///< Inclusive OR, switch register with AC, sequence 3
 const unsigned	GRP2_HLT	= 07402;		///< Halt the processor, sequence 3
 const unsigned	GRP2_CLA	= 07600;		///< Clear AC, sequence 2
 
@@ -266,7 +266,7 @@ static void oper_group2(unsigned instrs) {
 		assert(false);
 
 	if ((instrs & GRP2_HLT) == GRP2_HLT)
-		assert(false);
+		run = false;
 
 	if ((instrs & GRP2_CLA) == GRP2_CLA)
 		assert(false);
@@ -354,11 +354,13 @@ void execute() {
 		uint16_t sum = r.ac + r.md;
 		if (sum & UINT12_MAX)
 			r.l = ~r.l;
+		r.ac = sum & 07777;
 	} break;
 			
 	case OpCode::ISZ:
 		mem[r.ma] = ++r.md;
-		if (r.md == 0) ++r.pc;
+		if (r.md == 0) 
+			++r.pc;
 		break;
 
     case OpCode::DCA:
@@ -478,17 +480,18 @@ static bool frontpanel() {
 		cout	<< "number      -- Set Sr\n"
 				<< "?|h[elp]    -- Print help\n"
 				<< "c[ont]      -- Continue\n"
-				<< "q[uit]      -- Exit\n"
+				<< "la          -- Load Address\n"
+				<< "ldaddr		-- Load Address\n"
 				<< "[no]sinstr  -- Single Instruction\n"
 				<< "[no]sstep   -- Single Step\n"
 				<< "s[tart]     -- Start\n"
+				<< "q[uit]      -- Exit\n"
 				<< "<return>    -- Same as cont\n"
 				<< "<ctrl-d>    -- Same as q[uit]\n";
 
 	}
 	else if (cmd == "nosinstr")						    sw.sinstr = false;
 	else if (cmd == "nosstep")							sw.sstep = false;
-	else if (cmd == "q" || cmd == "quit")				return true;
 	else if (cmd == "sinstr")							sw.sinstr = true;
 	else if (cmd == "sstep")							sw.sstep = true;
 	else if (cmd == "s" || cmd == "start") {
@@ -497,6 +500,8 @@ static bool frontpanel() {
 		s 				= State::Fetch;
 		run 			= true;
 	}
+	else if (cmd == "q" || cmd == "quit")				return true;
+	else if (cmd == "la" || cmd == "ldaddr")			r.pc = r.sr;
 	else if (digit(cmd))
 		;
     else 
@@ -524,10 +529,10 @@ int process() {
 
 					++ncycles;
 
-                } while (!sw.sstep && s != State::Fetch);
-            } while (!sw.sinstr && !sw.sstep);
+                } while (run && !sw.sstep && s != State::Fetch);
+            } while (run && !sw.sinstr && !sw.sstep);
 
-            run = !sw.sstep && !sw.sinstr;
+            run = run && !sw.sstep && !sw.sinstr;
         }
 
 		while (!run) {
@@ -541,15 +546,17 @@ int process() {
  * The PDP8 simulator
  ************************************************************************************************/
 int main() {
-	mem[00000] = 07000;	// NOP
-	mem[00001] = 07001; // IAC
-	mem[00002] = 07060;	// CMA CML
-	mem[00003] = 07010;	// RAR
-	mem[00004] = 07012; // RTR
-	mem[00005] = 07004; // RAL
-	mem[00006] = 07006; // RTL
-	mem[00007] = 05201; // JMP 1
-	
+	mem[00200] = 07300;		// tally.lst
+	mem[00201] = 01210;
+	mem[00202] = 07041;
+	mem[00203] = 03212;
+	mem[00204] = 01211;
+	mem[00205] = 02212;
+	mem[00206] = 05204;
+	mem[00207] = 07402;
+	mem[00210] = 00022;
+	mem[00211] = 00044;
+	mem[00212] = 00000;
 
 	return process();
 }

@@ -26,10 +26,15 @@
 *.a
 *.lib
 
+# Listings
+*.lst
+
 # Executables
 *.exe
 *.out
 *.app
+*.bin
 
 docs
+samples
 pdp8sim
