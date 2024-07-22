@@ -6,7 +6,7 @@
             "type": "cppdbg",
             "request": "launch",
             "program": "${fileDirname}/${fileBasenameNoExtension}",
-            "args": ["samples/tally.bin"],
+            "args": ["samples/add_chk_ovr.bin"],
             "stopAtEntry": false,
             "cwd": "${fileDirname}",
             "environment": [],
