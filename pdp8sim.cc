@@ -456,16 +456,18 @@ static void disasm(unsigned addr, unsigned instr) {
 static void dump() {
     cout	<< 				   "PC " << oct << setfill('0') << setw(4) << r.pc	<< ' '
 			<< "L " << r.l	<< ' '
-			<<				   "AC " << oct << setfill('0') << setw(4) << r.ac  << '\n' 
+			<<				   "AC " << oct << setfill('0') << setw(4) << r.ac  << ' ' 
     		<< 				   "MA " << oct << setfill('0') << setw(4) << r.ma  << ' '
-           	<< 			   "    MD " << oct << setfill('0') << setw(4) << r.md  << '\n';
+           	<< 			       "MD " << oct << setfill('0') << setw(4) << r.md  << '\n'
+           	<< 			  	   "SR " << oct << setfill('0') << setw(4) << r.sr  << ' ';
 
-	cout	<< 				   "IR " << toString(r.ir)	<< ' '
-			<< 			   "     S " << toString(s)		<< '\n';
+	cout	<< 			   "    IR " << toString(r.ir)	<< ' '
+			<< 			  	   " S " << toString(s)		<< ' '
+			<< ninstrs << " instrs "
+			<< ncycles << " cycles " << '(' << ncycles * 1.5 << "us)\n";
 
 	disasm(r.pc, mem[r.pc]);
-	cout	<< "    /"
-			<< ninstrs << " instrs "	<< ncycles << " cycles " << '(' << ncycles * 1.5 << "us)\n";
+	cout	<<	'\n';
 }
 
 /********************************************************************************************//**

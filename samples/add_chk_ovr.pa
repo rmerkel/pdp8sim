@@ -1,0 +1,42 @@
+/ Add two numbers
+/ Test for arithmetic overflow
+
+START,  CLA CLL
+        TAD     A
+        AND     MASK            / Mask all but Bit 0
+        TAD     B               / Add B to Bit 0 of A
+        SZL                     / LINK = 1 implies both
+        JMP     BTHNEG          / Are negative
+        RAL                     / Rotate Bit 0 into Link
+        SZL CLA                 / Bit 0 == 1 implies
+        JMP     OPPSGN          / Opposite signs
+        JMP     BTHPOS          / B it 0 = 0 both positive
+
+OPPSGN, TAD     A               / If A and B are of opposite
+        TAD     B               / Signs, the addition
+        DCA     SUM             / Cannot result in overflow
+        HLT
+
+BTHNEG, CLA CLL
+        TAD     A               / If two negative numbers
+        TAD     B               / Add to form A
+        SMA                     / Positive number
+        JMP     NEGERR          / JMP to error routine
+        DCA     SUM             / Otherwise, store SUM
+        HLT
+
+BTHPOS, TAD     A               / If two positive
+        TAD     B               / Numbers add to form
+        SPA                     / A negitive number, JMP
+        JMP     POSERR          / To error routine
+        DCA     SUM             / Otherwise store SUM
+        HLT
+
+SUM,    0
+MASK,   4000
+A,      2433
+B,      2211
+
+POSERR, HLT
+NEGERR, HLT
+$
