@@ -123,6 +123,12 @@ const unsigned	GRP2_OSR		= 07404;	///< Inclusive OR, switch register with AC, se
 const unsigned	GRP2_HLT		= 07402;	///< Halt the processor, sequence 3
 const unsigned	GRP2_CLA		= 07600;	///< Clear AC, sequence 2
 
+// IOT
+
+const unsigned	IOT_DEV_SEL		= 00770;	///< Device ID
+const unsigned	IOT_DEV_SHIFT	= 3;
+
+const unsigned	IOT_OP			= 00007;	///< Operations
 
 /********************************************************************************************//**
  * PDP8 Registers
@@ -170,7 +176,7 @@ static Registers	r;
 static State       	s			= State::Fetch;
 static unsigned    	mem[4096];
 static unsigned		ncycles 	= 0;
-static unsigned		ninstrs		= 0;
+static unsigned		ninstr		= 0;
     
 /********************************************************************************************//**
  ************************************************************************************************/
@@ -193,115 +199,97 @@ static void rar() {
 /********************************************************************************************//**
  * OPeRate - Group 1
  ************************************************************************************************/
-static void oper_group1(unsigned instrs) {
-	if (instrs == GRP1_NOP)
+static void oper_group1(unsigned instr) {
+	if (instr == GRP1_NOP)
 		return;
 
 	else {
 		// Sequence 1
 
-		if ((instrs & GRP1_CLA) == GRP1_CLA)		
-			r.ac = 0;
-
-		if ((instrs & GRP1_CLL) == GRP1_CLL)
-			r.l = 0;
+		if ((instr & GRP1_CLA) == GRP1_CLA)	r.ac = 0;
+		if ((instr & GRP1_CLL) == GRP1_CLL)	r.l = 0;
 
 		// Sequence ?
 
-		if ((instrs & GRP1_CMA) == GRP1_CMA)
-			r.ac = ~r.ac;
-
-		if ((instrs & GRP1_CML) == GRP1_CML)
-			r.l = ~r.l;
+		if ((instr & GRP1_CMA) == GRP1_CMA)	r.ac = ~r.ac;
+		if ((instr & GRP1_CML) == GRP1_CML)	r.l = ~r.l;
 		
 		// Sequence ?
 		
-		if ((instrs & GRP1_IAC) == GRP1_IAC)
-			++r.ac;
+		if ((instr & GRP1_IAC) == GRP1_IAC)	++r.ac;
 
 		// Sequence ?
 
-		if ((instrs & GRP1_RAR) == GRP1_RAR)
-			rar();
-
-		if ((instrs & GRP1_RTR) == GRP1_RTR)
-			rar();
-
-		if ((instrs & GRP1_RAL) == GRP1_RAL)
-			ral();
-
-		if ((instrs & GRP1_RTL) == GRP1_RTL)
-			ral();
+		if ((instr & GRP1_RAR) == GRP1_RAR)	rar();
+		if ((instr & GRP1_RTR) == GRP1_RTR)	rar();
+		if ((instr & GRP1_RAL) == GRP1_RAL)	ral();
+		if ((instr & GRP1_RTL) == GRP1_RTL)	ral();
 	}
 }
 
 /********************************************************************************************//**
  * OPeRate - Group 2
  ************************************************************************************************/
-static void oper_group2(unsigned instrs) {
+static void oper_group2(unsigned instr) {
 	// Sequence 1
 
-	if ((instrs & GRP2_SKP_BIT) == GRP2_SKP_BIT) {	// SKP bit is 1
+	if ((instr & GRP2_SKP_BIT) == GRP2_SKP_BIT) {	// SKP bit is 1
 		bool condition = false;						// true for unconditional SKP
 
-		if ((instrs & GRP2_SPA) == GRP2_SPA) {
+		if ((instr & GRP2_SPA) == GRP2_SPA) {
 			condition = true;
 			if ((r.ac & Sign_Mask) != Sign_Mask)
 				++r.pc;
 		}
 
-		if ((instrs & GRP2_SNA) == GRP2_SNA) {
+		if ((instr & GRP2_SNA) == GRP2_SNA) {
 			condition = true;
 			if (r.ac != 0)
 				++r.pc;
 		}
 
-		if ((instrs & GRP2_SZL) == GRP2_SZL) {
+		if ((instr & GRP2_SZL) == GRP2_SZL) {
 			condition = true;
 			if (r.l == 0)
 				++r.pc;
 		}
 
-		if ((instrs & GRP2_SKP) == GRP2_SKP && !condition)
+		if ((instr & GRP2_SKP) == GRP2_SKP && !condition)
 			++r.pc;
 
 	} else {							// SKP bit is 0
-		if ((instrs & GRP2_SMA) == GRP2_SMA)
+		if ((instr & GRP2_SMA) == GRP2_SMA)
 			if ((r.ac & Sign_Mask) == Sign_Mask)
 				++r.pc;
 
-		if ((instrs & GRP2_SZA) == GRP2_SZA)
+		if ((instr & GRP2_SZA) == GRP2_SZA)
 			if (r.ac == 0)
 				++r.pc;
 
-		if ((instrs & GRP2_SNL) == GRP2_SNL)
+		if ((instr & GRP2_SNL) == GRP2_SNL)
 			if (r.l != 0)
 				++r.pc;
 	}
 	
 	// Sequence 2
 
-	if ((instrs & GRP2_CLA) == GRP2_CLA)
-		r.ac = 0;
+	if ((instr & GRP2_CLA) == GRP2_CLA)		r.ac = 0;
 
 	// Sequence 3
 
-	if ((instrs & GRP2_OSR) == GRP2_OSR)
-		r.ac |= r.sr;
-
-	if ((instrs & GRP2_HLT) == GRP2_HLT)
-		run = false;
+	if ((instr & GRP2_OSR) == GRP2_OSR)		r.ac |= r.sr;
+	if ((instr & GRP2_HLT) == GRP2_HLT)		run = false;
 }
 
 /********************************************************************************************//**
  * OPeRate
  ************************************************************************************************/
-static void oper(unsigned instrs) {
-	if (	 (instrs & GROUP1) == 0)
-		oper_group1(instrs);
+static void oper(unsigned instr) {
+	if (	 (instr & GROUP1) == 0)
+		oper_group1(instr);
 
-	else if ((instrs & GROUP2) == GROUP2)
-		oper_group2(instrs);
+	else if ((instr & GROUP2) == GROUP2)
+		oper_group2(instr);
 
 	else
 		assert(false);						// Other groups are not implenentated
@@ -328,7 +316,7 @@ static Decoded decode(unsigned instr) {
  * Fetch next instruction, handle JMP direct
  ************************************************************************************************/
 void fetch() {
-	++ninstrs;
+	++ninstr;
 
 	r.md 			= mem[r.pc++];
 	const Decoded d	= decode(r.md);
@@ -383,7 +371,7 @@ void execute() {
 
 	case OpCode::TAD: {
 		uint16_t sum = r.ac + r.md;
-		if (sum & UINT12_MAX)
+		if (sum & ~UINT12_MAX)
 			r.l = ~r.l;
 		r.ac = sum & UINT12_MAX;
 	} break;
@@ -430,23 +418,73 @@ void brk() {
 
 /********************************************************************************************//**
  * disasmble the the next instruction
+ *
+ * Output format: addr value opcode(s) <parameters>
  ************************************************************************************************/
 static void disasm(unsigned addr, unsigned instr) {
 	addr	&= UINT12_MAX;
 	instr	&= UINT12_MAX;
 	const Decoded d = decode(instr);
 
-	cout << oct	<< setfill('0')	<< setw(4) 	<< addr << ' ' << toString(d.op) << ' ';
+	cout	<< oct	<< setfill('0')	<< setw(4) 	<< addr 		<< ' '
+			<< oct << setfill('0') << setw(4)	<< mem[addr]	<< ' ';
 	switch (d.op) {
 		case OpCode::OPR:
-		case OpCode::IOT:
-			cout << oct	<< setfill('0')	<< setw(3) 	<< d.bits;
+			if ((instr & GROUP1) == 0) {
+
+				if (instr == GRP1_NOP)												cout << "NOP ";
+
+				if ((instr & GRP1_CLA) == GRP1_CLA)									cout << "CLA ";
+				if ((instr & GRP1_CLL) == GRP1_CLL)									cout << "CLL ";
+
+				if ((instr & GRP1_CMA) == GRP1_CMA)									cout << "CMA ";
+				if ((instr & GRP1_CML) == GRP1_CML)									cout << "CML ";
+		
+				if ((instr & GRP1_IAC) == GRP1_IAC)									cout << "IAC ";
+
+				if ((instr & GRP1_RTR) == GRP1_RTR)									cout << "RTR ";
+				else if ((instr & GRP1_RAR) == GRP1_RAR)							cout << "RAR ";
+				if ((instr & GRP1_RTL) == GRP1_RTL)									cout << "RTL ";
+				else if ((instr & GRP1_RAL) == GRP1_RAL)							cout << "RAL ";
+
+			} else if ((instr & GROUP2) == GROUP2) {
+				if ((instr & GRP2_SKP_BIT) == GRP2_SKP_BIT) {	// SKP bit is 1
+					bool condition = false;						// true for unconditional SKP
+
+					if ((instr & GRP2_SPA) == GRP2_SPA) {	condition = true;	cout << "SPA ";	}
+					if ((instr & GRP2_SNA) == GRP2_SNA) {	condition = true;	cout << "SNA ";	}
+					if ((instr & GRP2_SZL) == GRP2_SZL) {	condition = true;	cout << "SZL ";	}
+
+					if ((instr & GRP2_SKP) == GRP2_SKP && !condition)			cout << "SKP";
+
+				} else {							// SKP bit is 0
+					if ((instr & GRP2_SMA) == GRP2_SMA)							cout << "SMA ";
+					if ((instr & GRP2_SZA) == GRP2_SZA)							cout << "SZA ";
+					if ((instr & GRP2_SNL) == GRP2_SNL)							cout << "SNL ";
+				}
+	
+				if ((instr & GRP2_CLA) == GRP2_CLA)								cout << "CLA ";
+				if ((instr & GRP2_OSR) == GRP2_OSR)								cout << "OSR ";
+				if ((instr & GRP2_HLT) == GRP2_HLT)								cout << "HLT ";
+
+			} else
+				assert(false);									// Other groups are not supported... yet.
 			break;
 
+		case OpCode::IOT: {
+			cout << toString(d.op) << ' ';
+			const unsigned dev	= (instr & IOT_DEV_SEL) >> IOT_DEV_SHIFT;
+			const unsigned ops	= instr & IOT_OP;
+			cout << oct << setfill('0') << setw(3)	<< dev  << ' '
+				 << oct << setfill('0') << setw(1)  << ops	<< "\n";
+	  	} break;
+
 		default:
+			cout << toString(d.op) << ' ';
 			if (d.i)
 				cout << "I ";
-			cout  << oct << setfill('0') << setw(4) << d.eaddr;
+			cout	<< oct << setfill('0')	<< setw(4)	<< d.eaddr
+					<< oct << setfill('0')	<< " (" << setw(4) << mem[d.eaddr] << ')';
 	}
 }
 
@@ -463,7 +501,7 @@ static void dump() {
 
 	cout	<< 			   "    IR " << toString(r.ir)	<< ' '
 			<< 			  	   " S " << toString(s)		<< ' '
-			<< ninstrs << " instrs "
+			<< ninstr << " instr "
 			<< ncycles << " cycles " << '(' << ncycles * 1.5 << "us)\n";
 
 	disasm(r.pc, mem[r.pc]);
