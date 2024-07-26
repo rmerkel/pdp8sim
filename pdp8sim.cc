@@ -12,63 +12,12 @@
 #include <iostream>
 #include <string>
 
+#include "opcode.h"
+#include "state.h"
+
 using namespace std;
 
 static const char* progName = "pdp8sim";
-
-/********************************************************************************************//**
- * Operation codes for the basic instructions
- ************************************************************************************************/
-enum class OpCode {
-    AND = 0,
-    TAD = 1,
-    ISZ = 2,
-    DCA = 3,
-    JMS = 4,
-    JMP = 5,
-    IOT = 6,
-    OPR = 7
-};
-
-/********************************************************************************************//**
- * Return op as a string
- ************************************************************************************************/
-static const char* toString(OpCode op) {
-    switch (op) {
-    case OpCode::AND:   return "AND";
-    case OpCode::TAD:   return "TAD";
-    case OpCode::ISZ:   return "ISZ";
-    case OpCode::DCA:   return "DCA";
-    case OpCode::JMS:   return "JMS";
-    case OpCode::JMP:   return "JMP";
-    case OpCode::IOT:   return "IOT";
-    case OpCode::OPR:   return "OPR";
-    default:            return "Undefined OpCode!";
-    }
-}
-
-/********************************************************************************************//**
- * Major Memory states
- ************************************************************************************************/
-enum class State {
-	Fetch,
-	Defer,
-	Execute,
-	Break
-};
-
-/********************************************************************************************//**
- * Return a state as a string
- ************************************************************************************************/
-static const char* toString(const State state) {
-    switch (state) {
-    case State::Fetch:      return "Fetch";
-    case State::Defer:      return "Defer";
-    case State::Execute:    return "Execute";
-    case State::Break:      return "Break";
-    default:                return "Unknown State!";
-    }
-}
 
 /************************************************************************************************
  * Constants
@@ -417,74 +366,85 @@ void brk() {
 }
 
 /********************************************************************************************//**
+ ************************************************************************************************/
+static void disasm_opr(unsigned instr) {
+	cout << oct;
+
+	if ((instr & GROUP1) == 0) {
+
+		if (instr == GRP1_NOP)												cout << "NOP ";
+
+		if ((instr & GRP1_CLA) == GRP1_CLA)									cout << "CLA ";
+		if ((instr & GRP1_CLL) == GRP1_CLL)									cout << "CLL ";
+
+		if ((instr & GRP1_CMA) == GRP1_CMA)									cout << "CMA ";
+		if ((instr & GRP1_CML) == GRP1_CML)									cout << "CML ";
+		
+		if ((instr & GRP1_IAC) == GRP1_IAC)									cout << "IAC ";
+
+		if ((instr & GRP1_RTR) == GRP1_RTR)									cout << "RTR ";
+		else if ((instr & GRP1_RAR) == GRP1_RAR)							cout << "RAR ";
+		if ((instr & GRP1_RTL) == GRP1_RTL)									cout << "RTL ";
+		else if ((instr & GRP1_RAL) == GRP1_RAL)							cout << "RAL ";
+
+	} else if ((instr & GROUP2) == GROUP2) {
+		if ((instr & GRP2_SKP_BIT) == GRP2_SKP_BIT) {	// SKP bit is 1
+			bool condition = false;						// true for unconditional SKP
+
+			if ((instr & GRP2_SPA) == GRP2_SPA) {	condition = true;	cout << "SPA ";	}
+			if ((instr & GRP2_SNA) == GRP2_SNA) {	condition = true;	cout << "SNA ";	}
+			if ((instr & GRP2_SZL) == GRP2_SZL) {	condition = true;	cout << "SZL ";	}
+
+			if ((instr & GRP2_SKP) == GRP2_SKP && !condition)			cout << "SKP";
+
+		} else {							// SKP bit is 0
+			if ((instr & GRP2_SMA) == GRP2_SMA)							cout << "SMA ";
+			if ((instr & GRP2_SZA) == GRP2_SZA)							cout << "SZA ";
+			if ((instr & GRP2_SNL) == GRP2_SNL)							cout << "SNL ";
+		}
+	
+		if ((instr & GRP2_CLA) == GRP2_CLA)								cout << "CLA ";
+		if ((instr & GRP2_OSR) == GRP2_OSR)								cout << "OSR ";
+		if ((instr & GRP2_HLT) == GRP2_HLT)								cout << "HLT ";
+
+	} else
+		assert(false);									// Other groups are not supported... yet.
+}
+
+/********************************************************************************************//**
+ ************************************************************************************************/
+static void disasm_iot(unsigned instr) {
+	cout	<< "IOT ";
+	const unsigned dev	= (instr & IOT_DEV_SEL) >> IOT_DEV_SHIFT;
+	const unsigned ops	= instr & IOT_OP;
+	cout << setw(3)	<< dev  << ' '
+		 << setw(1)  << ops	<< "\n";
+}
+
+/********************************************************************************************//**
+ ************************************************************************************************/
+static void disasm_mri(const Decoded& d) {
+	cout 	<< d.op	<< ' ';
+	if (d.i)
+		cout << "I ";
+	cout	<< setw(4)	<< d.eaddr
+			<< " (" << setw(4) << mem[d.eaddr] << ')';
+}
+
+
+/********************************************************************************************//**
  * disasmble the the next instruction
- *
- * Output format: addr value opcode(s) <parameters>
  ************************************************************************************************/
 static void disasm(unsigned addr, unsigned instr) {
-	addr	&= UINT12_MAX;
-	instr	&= UINT12_MAX;
 	const Decoded d = decode(instr);
 
-	cout	<< oct	<< setfill('0')	<< setw(4) 	<< addr 		<< ' '
-			<< oct << setfill('0') << setw(4)	<< mem[addr]	<< ' ';
+	cout	<< oct << setfill('0');
+	cout	<< setw(4) 	<< addr 		<< ' '
+			<< setw(4)	<< mem[addr]	<< ' ';
 	switch (d.op) {
-		case OpCode::OPR:
-			if ((instr & GROUP1) == 0) {
-
-				if (instr == GRP1_NOP)												cout << "NOP ";
-
-				if ((instr & GRP1_CLA) == GRP1_CLA)									cout << "CLA ";
-				if ((instr & GRP1_CLL) == GRP1_CLL)									cout << "CLL ";
-
-				if ((instr & GRP1_CMA) == GRP1_CMA)									cout << "CMA ";
-				if ((instr & GRP1_CML) == GRP1_CML)									cout << "CML ";
-		
-				if ((instr & GRP1_IAC) == GRP1_IAC)									cout << "IAC ";
-
-				if ((instr & GRP1_RTR) == GRP1_RTR)									cout << "RTR ";
-				else if ((instr & GRP1_RAR) == GRP1_RAR)							cout << "RAR ";
-				if ((instr & GRP1_RTL) == GRP1_RTL)									cout << "RTL ";
-				else if ((instr & GRP1_RAL) == GRP1_RAL)							cout << "RAL ";
-
-			} else if ((instr & GROUP2) == GROUP2) {
-				if ((instr & GRP2_SKP_BIT) == GRP2_SKP_BIT) {	// SKP bit is 1
-					bool condition = false;						// true for unconditional SKP
-
-					if ((instr & GRP2_SPA) == GRP2_SPA) {	condition = true;	cout << "SPA ";	}
-					if ((instr & GRP2_SNA) == GRP2_SNA) {	condition = true;	cout << "SNA ";	}
-					if ((instr & GRP2_SZL) == GRP2_SZL) {	condition = true;	cout << "SZL ";	}
-
-					if ((instr & GRP2_SKP) == GRP2_SKP && !condition)			cout << "SKP";
-
-				} else {							// SKP bit is 0
-					if ((instr & GRP2_SMA) == GRP2_SMA)							cout << "SMA ";
-					if ((instr & GRP2_SZA) == GRP2_SZA)							cout << "SZA ";
-					if ((instr & GRP2_SNL) == GRP2_SNL)							cout << "SNL ";
-				}
-	
-				if ((instr & GRP2_CLA) == GRP2_CLA)								cout << "CLA ";
-				if ((instr & GRP2_OSR) == GRP2_OSR)								cout << "OSR ";
-				if ((instr & GRP2_HLT) == GRP2_HLT)								cout << "HLT ";
-
-			} else
-				assert(false);									// Other groups are not supported... yet.
-			break;
-
-		case OpCode::IOT: {
-			cout << toString(d.op) << ' ';
-			const unsigned dev	= (instr & IOT_DEV_SEL) >> IOT_DEV_SHIFT;
-			const unsigned ops	= instr & IOT_OP;
-			cout << oct << setfill('0') << setw(3)	<< dev  << ' '
-				 << oct << setfill('0') << setw(1)  << ops	<< "\n";
-	  	} break;
-
-		default:
-			cout << toString(d.op) << ' ';
-			if (d.i)
-				cout << "I ";
-			cout	<< oct << setfill('0')	<< setw(4)	<< d.eaddr
-					<< oct << setfill('0')	<< " (" << setw(4) << mem[d.eaddr] << ')';
+		case OpCode::OPR:	disasm_opr(instr);		break;
+		case OpCode::IOT: 	disasm_iot(instr);		break;
+		default:			disasm_mri(d);
 	}
 }
 
@@ -492,20 +452,23 @@ static void disasm(unsigned addr, unsigned instr) {
  * Dump the processor state
  ************************************************************************************************/
 static void dump() {
-    cout	<< 				   "PC " << oct << setfill('0') << setw(4) << r.pc	<< ' '
-			<< "L " << r.l	<< ' '
-			<<				   "AC " << oct << setfill('0') << setw(4) << r.ac  << ' ' 
-    		<< 				   "MA " << oct << setfill('0') << setw(4) << r.ma  << ' '
-           	<< 			       "MD " << oct << setfill('0') << setw(4) << r.md  << '\n'
-           	<< 			  	   "SR " << oct << setfill('0') << setw(4) << r.sr  << ' ';
+	cout << oct << setfill('0');
 
-	cout	<< 			   "    IR " << toString(r.ir)	<< ' '
-			<< 			  	   " S " << toString(s)		<< ' '
-			<< ninstr << " instr "
-			<< ncycles << " cycles " << '(' << ncycles * 1.5 << "us)\n";
+    cout	<< 				   "PC " << setw(4) << r.pc	<< ' '
+    		<< 				   "MA " << setw(4) << r.ma << ' '
+			<< "L " << r.l	<< ' '
+			<<				   "AC " << setw(4) << r.ac << ' ' 
+           	<< 			       "MD " << setw(4) << r.md << ' '
+           	<< 			  	   "SR " << setw(4) << r.sr << ' ';
+
+	cout	<< 			   	   "IR " << r.ir	<< ' '
+			<< 			  	   " S " << s		<< '\n';
 
 	disasm(r.pc, mem[r.pc]);
-	cout	<<	'\n';
+
+	cout 	<< "\t/ "
+			<< ninstr	<< " instr's, "
+			<< ncycles	<< " cycles " << '(' << ncycles * 1.5 << "us)\n";
 }
 
 /********************************************************************************************//**
@@ -570,6 +533,7 @@ static bool frontpanel() {
 		r.l				= false;
 		r.ac = r.md 	= 0;
 		s 				= State::Fetch;
+		r.pc			= r.sr;
 		run 			= true;
 	}
 	else if (cmd == "q" || cmd == "quit")				return true;
