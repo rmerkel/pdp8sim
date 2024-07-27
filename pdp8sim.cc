@@ -452,23 +452,30 @@ static void disasm(unsigned addr, unsigned instr) {
  * Dump the processor state
  ************************************************************************************************/
 static void dump() {
+	const double	us = ncycles * 1.5;			// Not accurate, IOT takes 4.5us!
+
 	cout << oct << setfill('0');
 
-    cout	<< 				   "PC " << setw(4) << r.pc	<< ' '
-    		<< 				   "MA " << setw(4) << r.ma << ' '
-			<< "L " << r.l	<< ' '
-			<<				   "AC " << setw(4) << r.ac << ' ' 
-           	<< 			       "MD " << setw(4) << r.md << ' '
-           	<< 			  	   "SR " << setw(4) << r.sr << ' ';
+    cout
+			<< "PC "	<< setw(4)	<< r.pc		<< ' '
+		 	<< "L "					<< r.l 		<< ' '
+			<< "AC "	<< setw(4)	<< r.ac		<< '\n' 
 
-	cout	<< 			   	   "IR " << r.ir	<< ' '
-			<< 			  	   " S " << s		<< '\n';
+    		<< "MA "	<< setw(4)	<< r.ma		<< "     "
+           	<< "MD "	<< setw(4)	<< r.md		<< ' '
+           	<< "SR "	<< setw(4)	<< r.sr		<< '\n'
 
-	disasm(r.pc, mem[r.pc]);
+			<< "IR "				<< r.ir		<< ' '
+									<< s		<< ' '
+			<< setfill(' ')
+						<< setw(4)	<< ninstr	<< " instrs "
+						<< setw(4)	<< ncycles	<< " cycles "
+			<< '(' 					<< us 		<< " us)\n";
 
-	cout 	<< "\t/ "
-			<< ninstr	<< " instr's, "
-			<< ncycles	<< " cycles " << '(' << ncycles * 1.5 << "us)\n";
+	if (s == State::Fetch) {
+		disasm(r.pc, mem[r.pc]);
+		cout	<< '\n';
+	}
 }
 
 /********************************************************************************************//**
