@@ -523,7 +523,7 @@ static bool frontpanel() {
 				<< "?|h[elp]    -- Print help\n"
 				<< "c[ont]      -- Continue\n"
 				<< "la          -- Load Address\n"
-				<< "ldaddr		-- Load Address\n"
+				<< "ldaddr      -- Load Address\n"
 				<< "[no]sinstr  -- Single Instruction\n"
 				<< "[no]sstep   -- Single Step\n"
 				<< "s[tart]     -- Start\n"
@@ -539,8 +539,8 @@ static bool frontpanel() {
 	else if (cmd == "s" || cmd == "start") {
 		r.l				= false;
 		r.ac = r.md 	= 0;
+		r.ma 			= r.pc;
 		s 				= State::Fetch;
-		r.pc			= r.sr;
 		run 			= true;
 	}
 	else if (cmd == "q" || cmd == "quit")				return true;
@@ -684,7 +684,7 @@ int main (int argc, char** argv) {
 
 				switch(c) {
 					case '?': case 'h': help();			return 1;
-					case 'v': cout << "version 0.1\n";	return 1;
+					case 'v': cout << "version 0.2\n";	return 1;
 					default:
 						cerr << progName << ": unknown option '" << c << "'.\n";
 						return 1;

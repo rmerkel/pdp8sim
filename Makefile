@@ -109,15 +109,14 @@ help:
 	@echo "DEBUG=1, (default), builds a debug image and 0 builds a release."
 	@echo ""
 	@echo "Targets:"
-	@echo "    all     - to build the compilier  and generate documentation (default)."
-	@echo "    check   - to run static checker."
+	@echo "    all     - build the simulator  and generate documentation (default)."
 	@echo "    clean   - to delete intermediates."
 	@echo "    cleanll - to delete all targets and intermediates."
 	@echo "    docs    - to generate documentation."
 	@echo "    help    - prints this message."
-	@echo "    p       - to build the compiler."
+	@echo "    pdp8sim - to build the simulator."
 	@echo "    pr      - prepare source for printing"
-	@echo "    test    - to bring calc upto date and run tests."
+	@echo "    test    - NOT IMPLEMENTATED!\n"
 	@echo ""
 
 ################################################################################
@@ -128,7 +127,6 @@ pr:
 	@pr --expand-tabs=4 $(ALLSRCS) Makefile $(DOCS)
 
 ################################################################################
-		assert(false);
 # Bring up to date and run some tests...
 ################################################################################
 
