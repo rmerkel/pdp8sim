@@ -332,8 +332,9 @@ void execute() {
 		break;
 
     case OpCode::DCA:
-		mem[r.ma] = r.ac;
+		r.md = r.ac;
 		r.ac = 0;
+		mem[r.ma] = r.md;
 		break;
 
     case OpCode::JMS:
