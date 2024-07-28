@@ -466,8 +466,8 @@ static void dump() {
            	<< "SR "	<< setw(4)	<< r.sr		<< '\n'
 
 			<< "IR "				<< r.ir		<< ' '
-									<< s		<< ' '
 			<< setfill(' ')
+						<< setw(2)  << s		<< ' '
 						<< setw(4)	<< ninstr	<< " instrs "
 						<< setw(4)	<< ncycles	<< " cycles "
 			<< '(' 					<< us 		<< " us)\n";

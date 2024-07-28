@@ -1,0 +1,14 @@
+/ Subtract two numbers
+
+                        / L   AC
+START,  CLA CLL         / 0  0000
+        TAD     B       / 0 0037
+        CMA             / 0 7740
+        IAC             / 0 7741
+        TAD     A       / 1 0007
+        HLT
+
+A,      0046
+B,      0037
+
+$

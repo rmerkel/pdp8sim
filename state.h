@@ -1,7 +1,7 @@
 /********************************************************************************************//**
  * @file state.h
  * 
- * A PDP-8 Simulator: enum State
+ * A PDP-8 Simulator: enum State - Major PDP-8 states
  ************************************************************************************************/
 
 #include <ostream>
@@ -16,10 +16,13 @@ enum class State {
 	Fetch,
 	Defer,
 	Execute,
-	Break
+	Break,
+	WordCount,
+	CurrAddr
 };
 
 /********************************************************************************************//**
+ * ostream put operator for States.
  ************************************************************************************************/
 std::ostream& operator<< (std::ostream& os, const State& state);
 
