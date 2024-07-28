@@ -1,0 +1,13 @@
+/ Multiple by 8
+
+*200
+MULT8,  CLA CLL
+        TAD     NUMBER
+        CLL RAL
+        CLL RAL
+        CLL RAL
+        DCA     NUMBER
+        HLT
+
+NUMBER, 0231
+$
