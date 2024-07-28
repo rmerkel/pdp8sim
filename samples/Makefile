@@ -1,4 +1,4 @@
-all:    add_chk_ovr.bin dadd.bin sub.bin tally.bin
+all:    add_chk_ovr.bin dadd.bin dsub.bin sub.bin tally.bin
 
 add_chk_ovr.bin:     add_chk_ovr.pa
 	palbart $<
@@ -6,10 +6,13 @@ add_chk_ovr.bin:     add_chk_ovr.pa
 dadd.bin:               dadd.pa
 	palbart $<
 
+dsub.bin:               dsub.pa
+	palbart $<
+
 sub.bin:                sub.pa
 	palbart $<
  
-tally.bin:	tally.pa
+tally.bin:	        tally.pa
 	palbart $<
 
 clean:

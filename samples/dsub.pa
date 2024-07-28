@@ -1,0 +1,34 @@
+/ Double Percision Subtraction
+
+*200
+DUBSUM, CLA CLL
+        TAD     BL      / Get -BL
+        CIA
+
+        TAD     AL
+        DCA     CL      / CL = AL - BL
+
+        RAL             / Keep 2's comp L
+        DCA     KEEP
+
+        TAD     BH      // One's comp BH
+        CMA
+
+        TAD     AH
+        TAD     KEEP
+        DCA     CH      // CH = AH - BL
+       
+        CLL
+        HLT
+
+AH,     1345
+AL,     2167
+
+BH,     0312
+BL,     0110
+
+CH,     0
+CL,     0
+
+KEEP,   0
+$
