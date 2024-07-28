@@ -1,0 +1,26 @@
+/ Double percision addition
+
+*200
+DUBADD, CLA CLL
+        TAD     AL
+        TAD     BL
+        DCA     CL
+
+        RAL
+        TAD     AH
+        TAD     BH
+        DCA     CH
+       
+        HLT
+
+AH,     1345
+AL,     2167
+
+BH,     0312
+BL,     0110
+
+CH,     0
+CL,     0
+
+KEEP,   0
+$

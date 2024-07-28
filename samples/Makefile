@@ -1,6 +1,9 @@
-all:    add_chk_ovr.bin tally.bin sub.bin
+all:    add_chk_ovr.bin dadd.bin sub.bin tally.bin
 
 add_chk_ovr.bin:     add_chk_ovr.pa
+	palbart $<
+
+dadd.bin:               dadd.pa
 	palbart $<
 
 sub.bin:                sub.pa
