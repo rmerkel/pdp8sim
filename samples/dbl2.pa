@@ -1,5 +1,7 @@
+/ Double, Simplified
+
 *200
-STARt,  CLA CLL
+START,  CLA CLL
         TAD     N               / Load N
         JMS     DOUBLE          / N * 2
         HLT

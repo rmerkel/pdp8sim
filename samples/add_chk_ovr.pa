@@ -1,4 +1,4 @@
-/ Add two numbers
+/ Add Two Numbers
 / Test for arithmetic overflow
 
 START,  CLA CLL

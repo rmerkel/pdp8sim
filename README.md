@@ -3,6 +3,11 @@
 A PDP-8 simulator, just for the heck of it!
 Version 0.2, pre-release.
 
+## Examples
+
+See ./samples. <file>.pa are assembly source, <file>.lst are assembly listing,
+<file>.err are error files and <file>.bin are output files in BIN tape format.
+
 ## Current Status
 
 * IOT and interrupts are not supported!
