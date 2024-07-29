@@ -1,0 +1,21 @@
+*200
+STARt,  CLA CLL
+        TAD     N               / Load N
+        JMS     DOUBLE          / N * 2
+        DCA     TWON
+        HLT
+
+N,      01111
+TWON,   00000
+ 
+DOUBLE, 0000
+        DCA     STORE
+        TAD     STORE
+        CLL     RAL             / AC *= 2
+        SNL                     / Overflow?
+        JMP I   DOUBLE
+        CLA CLL
+        TAD     STORE
+        HLT
+STORE,  0000
+$

@@ -8,6 +8,7 @@ Version 0.2, pre-release.
 * IOT and interrupts are not supported!
 * Break is not supported!
 * OPR Group 1 and 2, and MRI instructions are under test.
+* JMS Fixed.
 * Can load BIN files from the command line. Maybe add support for RIM format?
   Auto loading of RIM and, or BIN loaders?
 * No external devices... yet! Current thinking is to model each device as a

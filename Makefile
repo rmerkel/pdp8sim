@@ -51,7 +51,6 @@ LSTINGS = $(wildcard *p.lst)
 $(OBJDIR)/%.o: %.cc
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -c -o $@ $<
 
-
 .PHONY:	all clean cleanall $(DOCDIR) help pr test
 
 ################################################################################

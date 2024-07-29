@@ -1,0 +1,14 @@
+*200
+STARt,  CLA CLL
+        TAD     N               / Load N
+        JMS     DOUBLE          / N * 2
+        HLT
+
+N,      01111
+ 
+DOUBLE, 0000                    / AC *= 2, HLT on overflow
+        CLL     RAL
+        SNL                     / Overflow?
+        JMP I   DOUBLE
+        HLT
+$

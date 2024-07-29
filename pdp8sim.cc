@@ -339,7 +339,7 @@ void execute() {
 
     case OpCode::JMS:
 		mem[r.ma] = r.pc;
-		r.pc = r.ma++;
+		r.pc = ++r.ma;
 		break;
 
     case OpCode::JMP:		// Not expected in this state!

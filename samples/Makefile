@@ -1,22 +1,10 @@
-all:    add_chk_ovr.bin dadd.bin dsub.bin mult8.bin sub.bin tally.bin
+SRCS	= $(wildcard *.pa)
+BINS	= $(SRCS:.pa=.bin)
 
-add_chk_ovr.bin:     add_chk_ovr.pa
-	palbart $<
-
-dadd.bin:               dadd.pa
+%.bin: %.pa
 	palbart $<
 
-dsub.bin:               dsub.pa
-	palbart $<
-
-sub.bin:                sub.pa
-	palbart $<
- 
-mult8.bin:              mult8.pa
-	palbart $<
- 
-tally.bin:	        tally.pa
-	palbart $<
+all:    $(BINS)
 
 clean:
 	@rm -f *.lst *.bin *.rim
