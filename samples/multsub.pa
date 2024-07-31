@@ -1,0 +1,30 @@
+/ DOUBLE Sub
+
+*200
+START,  CLA CLL
+        TAD     A               / Load A
+        DCA     .+3             / Store after JMS
+        TAD     B               / Load B
+        JMS I   30              / Call MULT
+        0000                    / A
+        DCA     PRDUCT
+        HLT
+
+PRDUCT, 0000
+A,      0051
+B,      0027
+
+*30
+        MULT                    / Addr of MULT in page 0
+
+*6000
+MULT,   0000                    / Return addr
+        CIA                     / -B
+        DCA     MTALLY          / Store -B in MTALLY
+        TAD I   MULT            / A (following JMS)
+        ISZ     MTALLY          / Count down (-B)
+        JMP     .-2
+        ISZ     MULT            / Skip B
+        JMP I   MULT            / Return to +1 after JMS
+MTALLY, 0000
+$
