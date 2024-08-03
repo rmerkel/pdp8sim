@@ -1,0 +1,28 @@
+/ DOUBLE Sub version B
+
+*200
+START,  CLA CLL
+        TAD     A               / Load A
+        DCA     .+3             / Store after JMS
+        TAD     B               / Load B
+        JMS I   (MULT)          / Call MULTP -> MULT
+        0000                    / A
+        DCA     PRDUCT
+        HLT
+
+PRDUCT, 0000
+A,      0051
+B,      0027
+
+*6000
+MULT,   0000                    / Return addr
+        CIA                     / -B in AC
+        DCA     MTALLY          / Store -B in MTALLY
+STEP,   TAD I   MULT            / A (following JMS)
+        ISZ     MTALLY          / Count down (-B)
+        JMP     STEP
+
+        ISZ     MULT            / Skip A Parameter
+        JMP I   MULT            / Return to +1 after JMS
+MTALLY, 0000
+$
