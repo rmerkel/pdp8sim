@@ -1,7 +1,7 @@
 # pdp8sim - A PDP-8 Simulator
 
 A PDP-8 simulator, just for the heck of it!
-Version 0.2, pre-release.
+Version 0.4, pre-release.
 
 ## Examples
 
