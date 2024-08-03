@@ -455,26 +455,28 @@ static void disasm(unsigned addr, unsigned instr) {
 /********************************************************************************************//**
  * Dump the processor state
  ************************************************************************************************/
-static void dump() {
+static void dumpState() {
 	const double	us = ncycles * 1.5;			// Not accurate, IOT takes 4.5us!
 
 	cout << oct << setfill('0');
 
     cout
-			<< "PC "	<< setw(4)	<< r.pc		<< ' '
-		 	<< "L "					<< r.l 		<< ' '
-			<< "AC "	<< setw(4)	<< r.ac		<< '\n' 
+			<< "PC "	<< setw(4)	<< r.pc			<< ' '
+			<< '('		<< setw(4) 	<< mem[r.pc]	<< ") "
+		 	<< "L "					<< r.l 			<< ' '
+			<< "AC "	<< setw(4)	<< r.ac			<< '\n' 
 
-    		<< "MA "	<< setw(4)	<< r.ma		<< "     "
-           	<< "MD "	<< setw(4)	<< r.md		<< ' '
-           	<< "SR "	<< setw(4)	<< r.sr		<< '\n'
+    		<< "MA "	<< setw(4)	<< r.ma			<< ' '
+			<< '('		<< setw(4)	<<	mem[r.ma]	<< ")     "
+           	<< "MD "	<< setw(4)	<< r.md			<< ' '
+           	<< "SR "	<< setw(4)	<< r.sr			<< '\n'
 
-			<< "IR "				<< r.ir		<< ' '
+			<< "IR "				<< r.ir			<< ' '
 			<< setfill(' ')
-						<< setw(2)  << s		<< ' '
-						<< setw(4)	<< ninstr	<< " instrs "
-						<< setw(4)	<< ncycles	<< " cycles "
-			<< '(' 					<< us 		<< " us)\n";
+						<< setw(2)  << s			<< ' '
+						<< setw(4)	<< ninstr		<< " instrs, "
+						<< setw(4)	<< ncycles		<< " cycles, "
+			<< '(' 					<< us 			<< " us)\n";
 
 	if (s == State::Fetch) {
 		disasm(r.pc, mem[r.pc]);
@@ -512,7 +514,7 @@ static bool digit(const string& s) {
  * @return true to exit the simulator
  ************************************************************************************************/
 static bool frontpanel() {
-	dump();
+	dumpState();
     cout << "> ";
  
     string cmd = "";
@@ -526,6 +528,7 @@ static bool frontpanel() {
 		cout	<< "number      -- Set Sr\n"
 				<< "?|h[elp]    -- Print help\n"
 				<< "c[ont]      -- Continue\n"
+				<< "e[examine]  -- Examine memory\n"
 				<< "la          -- Load Address\n"
 				<< "ldaddr      -- Load Address\n"
 				<< "[no]sinstr  -- Single Instruction\n"
@@ -536,10 +539,15 @@ static bool frontpanel() {
 				<< "<ctrl-d>    -- Same as q[uit]\n";
 
 	}
-	else if (cmd == "nosinstr")						    sw.sinstr = false;
-	else if (cmd == "nosstep")							sw.sstep = false;
-	else if (cmd == "sinstr")							sw.sinstr = true;
-	else if (cmd == "sstep")							sw.sstep = true;
+	else if (cmd == "e" || cmd == "examine") {
+		cout << setw(4) << mem[r.pc++] << '\n';
+		r.ma = r.pc;
+	}
+	else if (cmd == "la" || cmd == "ldaddr")	r.pc = r.sr;
+	else if (cmd == "nosinstr")					sw.sinstr = false;
+	else if (cmd == "nosstep")					sw.sstep = false;
+	else if (cmd == "sinstr")					sw.sinstr = true;
+	else if (cmd == "sstep")					sw.sstep = true;
 	else if (cmd == "s" || cmd == "start") {
 		r.l				= false;
 		r.ac = r.md 	= 0;
@@ -548,7 +556,6 @@ static bool frontpanel() {
 		run 			= true;
 	}
 	else if (cmd == "q" || cmd == "quit")				return true;
-	else if (cmd == "la" || cmd == "ldaddr")			r.pc = r.sr;
 	else if (digit(cmd))
 		;
     else 

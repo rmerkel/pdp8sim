@@ -5,8 +5,8 @@ Version 0.2, pre-release.
 
 ## Examples
 
-See ./samples. <file>.pa are assembly source, <file>.lst are assembly listing,
-<file>.err are error files and <file>.bin are output files in BIN tape format.
+See ./samples. \*.pa are assembly source, \*.lst are assembly listing,
+\*.err are error files and \*.bin are output files in BIN tape format.
 
 ## Current Status
 
