@@ -515,15 +515,18 @@ static bool digit(const string& s) {
  ************************************************************************************************/
 static bool frontpanel() {
 	dumpState();
-    cout << "> ";
  
-    string cmd = "";
+    static string lcmd = "?";				// last comand
+    string cmd = "";						// current command
+
+    cout << "> ";
     if (!getline(cin, cmd))
-    	return true;			// Ctrl-D - exit
+		return true;						// Ctrl-D - exit
 
-//	cerr << "read: '" << cmd << "'\n";		// For testing only...
+	if (cmd == "") 
+		cmd = lcmd;							// Repeat last...
 
-	else if (cmd == "" || cmd == "c" || cmd == "cont")	run = true;
+	if (	 cmd == "c" || cmd == "cont")	run = true;
 	else if (cmd == "?" || cmd == "h" || cmd == "help") {
 		cout	<< "number      -- Set Sr\n"
 				<< "?|h[elp]    -- Print help\n"
@@ -537,13 +540,10 @@ static bool frontpanel() {
 				<< "q[uit]      -- Exit\n"
 				<< "<return>    -- Same as cont\n"
 				<< "<ctrl-d>    -- Same as q[uit]\n";
-
-	}
-	else if (cmd == "e" || cmd == "examine") {
-		cout << setw(4) << mem[r.pc++] << '\n';
-		r.ma = r.pc;
-	}
-	else if (cmd == "la" || cmd == "ldaddr")	r.pc = r.sr;
+	} else if (cmd == "e" || cmd == "examine") {
+		r.md = mem[r.pc];
+		r.ma = r.pc++;
+	} else if (cmd == "la" || cmd == "ldaddr")	r.pc = r.sr;
 	else if (cmd == "nosinstr")					sw.sinstr = false;
 	else if (cmd == "nosstep")					sw.sstep = false;
 	else if (cmd == "sinstr")					sw.sinstr = true;
@@ -554,12 +554,13 @@ static bool frontpanel() {
 		r.ma 			= r.pc;
 		s 				= State::Fetch;
 		run 			= true;
-	}
-	else if (cmd == "q" || cmd == "quit")				return true;
+	} else if (cmd == "q" || cmd == "quit")				return true;
 	else if (digit(cmd))
 		;
     else 
 		cerr << "Unknown command: '" << cmd << "!\n";
+
+	lcmd = cmd;
         
 	return false;
 }
@@ -570,9 +571,9 @@ static bool frontpanel() {
 int process() {
 	run = false;					// Processor starts in idle mode...
     for (;;) {
-        while (run) {
+		if (run) {
             do {					// Next instruction (mem[r.pc])
-                do {				// Next memory state
+                do {				// 	Next memory state
                     switch(s) {
                     case State::Fetch:      fetch();    break;
                     case State::Defer:      defer();    break;
@@ -587,15 +588,13 @@ int process() {
             } while (run && !sw.sinstr && !sw.sstep);
 
             run = run && !sw.sstep && !sw.sinstr;
-        }
 
-		while (!run) {
-			if (frontpanel())
-				return 0;
-		}
-    }
+        } else if (frontpanel())
+			return 0;
+
+		// else: keep going...
+	}
 }
-
 
 /********************************************************************************************//**
  * Load a BIN file into memory
@@ -674,7 +673,6 @@ static void help() {
 			<< '\n'
 			<< "And where filenames is zero or more program file names to load in BIN format\n";
 }
-
 
 /********************************************************************************************//**
  * The PDP8 simulator

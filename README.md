@@ -45,6 +45,12 @@ Note that [PALBART](https://www.pdp8online.com/ftp/software/palbart/palbart.c) w
   result in a IOT time of 4.5us. See PDP-8 Maintenance Manual, Input/Output
   Transfer (IOT), pg 2-15.
 
+## Future
+
+ * Trace command - maybe replace bool run with enum class State { Idle, Run, Trace };?
+ * Improved "front-pannel", e.g, "la 0200"?
+ * Breakpoints?
+
 ## Testing
 
 Currently ah-hoc running of the example programs.
