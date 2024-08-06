@@ -31,10 +31,12 @@ K4200,  4200
 RESULT, 0000
 
 / Square the value in AC
-/ Bug: if AC == 0, takes 07777 loops to return zero!
 
 *300
 SQUARE, 0000
+	SNA			/ Zero?
+        JMP I   SQUARE          / .. then don't bother
+
         DCA     STORE           / Store number to square
 
         TAD     STORE           / Loop count
