@@ -1,7 +1,7 @@
 # pdp8sim - Yet Another PDP-8 Simulator
 
 A PDP-8 simulator, just for the heck of it!
-Version 0.5, pre-release.
+Version 0.6, pre-release.
 
 Primally ostly based on the PDP-8 Straight Eight,
 describe3d in DEC's 1967 Small Computer Handbook, "PDP-8 Users Handbook"
