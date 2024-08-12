@@ -372,8 +372,7 @@ void brk() {
 /********************************************************************************************//**
  ************************************************************************************************/
 static void disasm_opr(unsigned instr) {
-	cout << oct;
-
+	
 	if ((instr & GROUP1) == 0) {
 
 		if (instr == GRP1_NOP)												cout << "NOP ";
@@ -649,8 +648,7 @@ static bool load_BIN (const string& filename) {
 
 			case BIN_State::DataLSB:
 				data |= byte;
-				mem[r.pc] = data;
-				mem[++r.pc] = data;
+				mem[r.pc++] = data;
 				s = BIN_State::DataMSB;
 				break;
 

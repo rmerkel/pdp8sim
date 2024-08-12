@@ -1,0 +1,16 @@
+{
+    "makefile.launchConfigurations": [
+        {
+            "cwd": "/home/rtm/projects/pdp8sim",
+            "binaryPath": "/home/rtm/projects/pdp8sim/pdp8sim",
+            "binaryArgs": [
+                "examples/src1234.bin"
+            ]
+        },
+        {
+            "cwd": "/home/rtm/projects/pdp8sim",
+            "binaryPath": "/home/rtm/projects/pdp8sim/pdp8sim",
+            "binaryArgs": []
+        }
+    ]
+}

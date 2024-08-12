@@ -34,7 +34,7 @@ RESULT, 0000
 
 *300
 SQUARE, 0000
-	SNA			/ Zero?
+        SNA                     / Zero?
         JMP I   SQUARE          / .. then don't bother
 
         DCA     STORE           / Store number to square

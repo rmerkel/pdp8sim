@@ -6,7 +6,7 @@
             "type": "cppdbg",
             "request": "launch",
             "program": "${fileDirname}/${fileBasenameNoExtension}",
-            "args": ["samples/add_chk_ovr.bin"],
+            "args": ["samples/src1234.bin"],
             "stopAtEntry": false,
             "cwd": "${fileDirname}",
             "environment": [],

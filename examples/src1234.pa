@@ -1,0 +1,26 @@
+*0
+NUMBER, 1234
+
+*200
+START,  CLA CLL
+        TAD     NUMBER
+        CIA
+        DCA     COMPARE         /STORES MINU NUMBER
+        DCA     ENTRY           /SETS ENTRY TO ZERO
+
+REPEAT, ISZ     ENTRY           /INCREASE ENTRY
+        NOP
+        TAD I   ENTRY           /COMPARSION IS
+        TAD     COMPARE         /DONE HERE
+        SZA CLA
+        JMP     REPEAT
+
+        TAD     ENTRY
+        HLT                     /ENTRY IS IN AC
+
+COMPARE, 0
+ENTRY,  0
+$
+
+                
+
