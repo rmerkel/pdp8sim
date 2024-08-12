@@ -12,7 +12,9 @@
 #include <iostream>
 #include <string>
 
+#include "decode.h"
 #include "opcode.h"
+#include "registers.h"
 #include "state.h"
 
 using namespace std;
@@ -30,13 +32,6 @@ const int	   INT12_MIN		= -2048;
 /************************************************************************************************
  * Bit maskes
  ************************************************************************************************/
-
-const unsigned Page_Mask    	= 07600;	///< PC Address Page address mask
-const unsigned Op_Mask			= 07000;	///< OpCode mask
-const unsigned Op_Shift			= 9;		///< OpCode shift
-const unsigned I_Mask			= 00400;	///< Indirect bit
-const unsigned P_Mask			= 00200;	///< Page bit
-const unsigned Addr_Mask		= 00177;	///< Address/page offset mask
 
 const unsigned Sign_Mask		= 04000;	///< 2's complement sign mask
 
@@ -78,32 +73,6 @@ const unsigned	IOT_DEV_SEL		= 00770;	///< Device ID
 const unsigned	IOT_DEV_SHIFT	= 3;
 
 const unsigned	IOT_OP			= 00007;	///< Operations
-
-/********************************************************************************************//**
- * PDP8 Registers
- ************************************************************************************************/
-struct Registers {
-    uint16_t    pc      : 12;       		///< Program Counter - may expand to include df and if
-    uint16_t    ac      : 12;				///< ACcumulator register
-    uint16_t     l      :  1;				///< Link register
-    uint16_t    ma      : 12;       		///< Memory address register
-    uint16_t    md      : 12;				///< Memory data register
-	uint16_t	sr		: 12;				///< Switch register
-	OpCode		ir;
-
-    Registers() : pc{0}, ac{0}, l{0}, ma{0}, md{0}, sr{0}, ir{OpCode::AND}  {}
-};
-
-/********************************************************************************************//**
- * Decoded instructon
- ************************************************************************************************/
-struct Decoded {
-	OpCode		op;							///< Opcode
-	bool		i;							///< Indirect?
-	bool		p;							///< Current page?
-	uint16_t	eaddr;						///< Effective addr
-	uint16_t	bits;						///< bits 3-11 of the instruction (for OPR, IOT, tbd)
-};
 
 /********************************************************************************************//**
  * Front Panel switches
@@ -245,30 +214,13 @@ static void oper(unsigned instr) {
 }
 
 /********************************************************************************************//**
- * Decode a instruction
- ************************************************************************************************/
-static Decoded decode(unsigned instr) {
-	Decoded d;
-	d.op		= static_cast<OpCode>((instr & Op_Mask)	>> Op_Shift);
-	d.i		= (instr & I_Mask) == I_Mask;
-	d.p		= (instr & P_Mask) == P_Mask;
-	unsigned	addr	= instr & Addr_Mask;
-
-	d.eaddr	= d.p ? r.pc & Page_Mask : 0;
-	d.eaddr |= addr;
-	d.bits = instr & 00777;
-
-	return d;
-}
-
-/********************************************************************************************//**
  * Fetch next instruction, handle JMP direct
  ************************************************************************************************/
 void fetch() {
 	++ninstr;
 
 	r.md 			= mem[r.pc++];
-	const Decoded d	= decode(r.md);
+	const Decode d	= Decode(r.md, r.pc);
 	r.ir 			= d.op;
 	r.ma 			= d.eaddr;
 
@@ -426,7 +378,7 @@ static void disasm_iot(unsigned instr) {
 
 /********************************************************************************************//**
  ************************************************************************************************/
-static void disasm_mri(const Decoded& d) {
+static void disasm_mri(const Decode& d) {
 	cout 	<< d.op	<< ' ';
 	if (d.i)
 		cout << "I ";
@@ -439,7 +391,7 @@ static void disasm_mri(const Decoded& d) {
  * disasmble the the next instruction
  ************************************************************************************************/
 static void disasm(unsigned addr, unsigned instr) {
-	const Decoded d = decode(instr);
+	const Decode d = Decode(instr, addr);
 
 	cout	<< oct << setfill('0');
 	cout	<< setw(4) 	<< addr 		<< ' '
@@ -691,7 +643,7 @@ int main (int argc, char** argv) {
 
 				switch(c) {
 					case '?': case 'h': help();			return 1;
-					case 'v': cout << "version 0.6\n";	return 1;
+					case 'v': cout << "version 0.7\n";	return 1;
 					default:
 						cerr << progName << ": unknown option '" << c << "'.\n";
 						return 1;

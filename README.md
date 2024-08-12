@@ -1,4 +1,4 @@
-# pdp8sim - Yet Another PDP-8 Simulator, v0.6 pre-release
+# pdp8sim - Yet Another PDP-8 Simulator, v0.7 pre-release
 
 A PDP-8 simulator, just for the heck of it!
 
