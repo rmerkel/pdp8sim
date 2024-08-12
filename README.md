@@ -1,9 +1,8 @@
-# pdp8sim - Yet Another PDP-8 Simulator
+# pdp8sim - Yet Another PDP-8 Simulator, v0.6 pre-release
 
 A PDP-8 simulator, just for the heck of it!
-Version 0.6, pre-release.
 
-Primally ostly based on the PDP-8 Straight Eight,
+Primally based on the PDP-8 Straight Eight,
 describe3d in DEC's 1967 Small Computer Handbook, "PDP-8 Users Handbook"
 
 ## References
@@ -31,10 +30,14 @@ Note that [PALBART](https://www.pdp8online.com/ftp/software/palbart/palbart.c) w
 
 ## Current Status
 
+### Bugs fixed
+
 * JMS fixed!
-* IOT and interrupts are not supported!
-* Break is not supported!
-* OPR Group 1 and 2, and MRI instructions are under test.
+* Double assign in defer fixed.
+* OPR Group 1 and 2, and MRI instructions mostly tested.
+
+### General 
+* IOT, interrupts and break are not supported!
 * Can load BIN files from the command line. Maybe add support for RIM format?
   Auto loading of RIM and, or BIN loaders?
 * No external devices... yet! Current thinking is to model each device as a
