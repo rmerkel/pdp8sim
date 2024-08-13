@@ -87,31 +87,41 @@ struct Switches {
 /************************************************************************************************
  * Processor State
  ************************************************************************************************/
+struct PDP8 {
+	bool        run;
+	Switches    sw;
+	Registers	regs;
+	State       state;
+	unsigned    mem[4096];
+	unsigned	nCycles;
+	unsigned	nInstr;
 
-static bool        	run 		= false;
-static Switches    	sw;
-static Registers	r;
-static State       	s			= State::Fetch;
-static unsigned    	mem[4096];
-static unsigned		ncycles 	= 0;
-static unsigned		ninstr		= 0;
+	PDP8();
+};
+
+/********************************************************************************************//**
+ ************************************************************************************************/
+PDP8::PDP8() : run {false}, state {State::Fetch}, nCycles {0}, nInstr {0} {
+}
+
+static PDP8	p;
     
 /********************************************************************************************//**
  ************************************************************************************************/
 static void ral() {
-	const uint16_t prevL = r.l;
-	r.l = r.ac >> 11;
-	r.ac <<= 1;
-	r.ac |= prevL;
+	const uint16_t prevL = p.regs.l;
+	p.regs.l = p.regs.ac >> 11;
+	p.regs.ac <<= 1;
+	p.regs.ac |= prevL;
 }
 
 /********************************************************************************************//**
  ************************************************************************************************/
 static void rar() {
-	const uint16_t prevL = r.l;
-	r.l = r.ac & 1;
-	r.ac >>= 1;
-	r.ac |= prevL << 11;
+	const uint16_t prevL = p.regs.l;
+	p.regs.l = p.regs.ac & 1;
+	p.regs.ac >>= 1;
+	p.regs.ac |= prevL << 11;
 }
 
 /********************************************************************************************//**
@@ -124,17 +134,17 @@ static void oper_group1(unsigned instr) {
 	else {
 		// Sequence 1
 
-		if ((instr & GRP1_CLA) == GRP1_CLA)	r.ac = 0;
-		if ((instr & GRP1_CLL) == GRP1_CLL)	r.l = 0;
+		if ((instr & GRP1_CLA) == GRP1_CLA)	p.regs.ac = 0;
+		if ((instr & GRP1_CLL) == GRP1_CLL)	p.regs.l = 0;
 
 		// Sequence ?
 
-		if ((instr & GRP1_CMA) == GRP1_CMA)	r.ac = ~r.ac;
-		if ((instr & GRP1_CML) == GRP1_CML)	r.l = ~r.l;
+		if ((instr & GRP1_CMA) == GRP1_CMA)	p.regs.ac = ~p.regs.ac;
+		if ((instr & GRP1_CML) == GRP1_CML)	p.regs.l = ~p.regs.l;
 		
 		// Sequence ?
 		
-		if ((instr & GRP1_IAC) == GRP1_IAC)	++r.ac;
+		if ((instr & GRP1_IAC) == GRP1_IAC)	++p.regs.ac;
 
 		// Sequence ?
 
@@ -156,47 +166,47 @@ static void oper_group2(unsigned instr) {
 
 		if ((instr & GRP2_SPA) == GRP2_SPA) {
 			condition = true;
-			if ((r.ac & Sign_Mask) != Sign_Mask)
-				++r.pc;
+			if ((p.regs.ac & Sign_Mask) != Sign_Mask)
+				++p.regs.pc;
 		}
 
 		if ((instr & GRP2_SNA) == GRP2_SNA) {
 			condition = true;
-			if (r.ac != 0)
-				++r.pc;
+			if (p.regs.ac != 0)
+				++p.regs.pc;
 		}
 
 		if ((instr & GRP2_SZL) == GRP2_SZL) {
 			condition = true;
-			if (r.l == 0)
-				++r.pc;
+			if (p.regs.l == 0)
+				++p.regs.pc;
 		}
 
 		if ((instr & GRP2_SKP) == GRP2_SKP && !condition)
-			++r.pc;
+			++p.regs.pc;
 
 	} else {							// SKP bit is 0
 		if ((instr & GRP2_SMA) == GRP2_SMA)
-			if ((r.ac & Sign_Mask) == Sign_Mask)
-				++r.pc;
+			if ((p.regs.ac & Sign_Mask) == Sign_Mask)
+				++p.regs.pc;
 
 		if ((instr & GRP2_SZA) == GRP2_SZA)
-			if (r.ac == 0)
-				++r.pc;
+			if (p.regs.ac == 0)
+				++p.regs.pc;
 
 		if ((instr & GRP2_SNL) == GRP2_SNL)
-			if (r.l != 0)
-				++r.pc;
+			if (p.regs.l != 0)
+				++p.regs.pc;
 	}
 	
 	// Sequence 2
 
-	if ((instr & GRP2_CLA) == GRP2_CLA)		r.ac = 0;
+	if ((instr & GRP2_CLA) == GRP2_CLA)		p.regs.ac = 0;
 
 	// Sequence 3
 
-	if ((instr & GRP2_OSR) == GRP2_OSR)		r.ac |= r.sr;
-	if ((instr & GRP2_HLT) == GRP2_HLT)		run = false;
+	if ((instr & GRP2_OSR) == GRP2_OSR)		p.regs.ac |= p.regs.sr;
+	if ((instr & GRP2_HLT) == GRP2_HLT)		p.run = false;
 }
 
 /********************************************************************************************//**
@@ -217,108 +227,108 @@ static void oper(unsigned instr) {
  * Fetch next instruction, handle JMP direct
  ************************************************************************************************/
 void fetch() {
-	++ninstr;
+	++p.nInstr;
 
-	r.md 			= mem[r.pc++];
-	const Decode d	= Decode(r.md, r.pc);
-	r.ir 			= d.op;
-	r.ma 			= d.eaddr;
+	p.regs.md 		= p.mem[p.regs.pc++];
+	const Decode d	= Decode(p.regs.md, p.regs.pc);
+	p.regs.ir 		= d.op;
+	p.regs.ma 		= d.eaddr;
 
-    if (r.ir == OpCode::IOT) {			// IOT?
-		assert(false);					// ... not implemented!
-        s = State::Fetch;
+    if (p.regs.ir == OpCode::IOT) {			// IOT?
+		assert(false);						// ... not implemented!
+        p.state = State::Fetch;
 
-	} else if (r.ir == OpCode::OPR) {		// OPR?
-		oper(r.md);
-		s = State::Fetch;
+	} else if (p.regs.ir == OpCode::OPR) {	// OPR?
+		oper(p.regs.md);
+		p.state = State::Fetch;
 
     } else if (d.i)                  		// Indirect?
-       s = State::Defer;				//	r.ma is the address of the operation
+       p.state = State::Defer;				//	r.ma is the address of the operation
 	   
-    else if (r.ir == OpCode::JMP) {		// JMP direct?
-        r.pc = r.ma;
-        s = State::Fetch;
+    else if (p.regs.ir == OpCode::JMP) {	// JMP direct?
+        p.regs.pc = p.regs.ma;
+        p.state = State::Fetch;
 
     } else
-       s = State::Execute;
+       p.state = State::Execute;
 }
 
 /********************************************************************************************//**
  * Defer state
  ************************************************************************************************/
 void defer() {
-	r.md = mem[r.ma];					// Fetch indirect operand
+	p.regs.md = p.mem[p.regs.ma];			// Fetch indirect operand
 
-	if (r.ma >= 010 && r.ma <= 017)
-		mem[r.ma] = ++r.md;				// Auto increment
+	if (p.regs.ma >= 010 && p.regs.ma <= 017)
+		p.mem[p.regs.ma] = ++p.regs.md;		// Auto increment
 
-	if (r.ir == OpCode::JMP) {			// JMP indirect?
-		r.pc = r.md;
-		s = State::Fetch;
+	if (p.regs.ir == OpCode::JMP) {			// JMP indirect?
+		p.regs.pc = p.regs.md;
+		p.state = State::Fetch;
 
 	} else
-		s = State::Execute;
+		p.state = State::Execute;
 
-	r.ma = r.md;
+	p.regs.ma = p.regs.md;
 }
 
 /********************************************************************************************//**
  * Execute state
  ************************************************************************************************/
 void execute() {
-    r.md = mem[r.ma];
+    p.regs.md = p.mem[p.regs.ma];
 
-    switch(r.ir) {
+    switch(p.regs.ir) {
     case OpCode::AND:
-    	r.ac &= r.md;
+    	p.regs.ac &= p.regs.md;
         break;
 
 	case OpCode::TAD: {
-		uint16_t sum = r.ac + r.md;
+		uint16_t sum = p.regs.ac + p.regs.md;
 		if (sum & ~UINT12_MAX)
-			r.l = ~r.l;
-		r.ac = sum & UINT12_MAX;
+			p.regs.l = ~p.regs.l;
+		p.regs.ac = sum & UINT12_MAX;
 	} break;
 			
 	case OpCode::ISZ:
-		mem[r.ma] = ++r.md;
-		if (r.md == 0) 
-			++r.pc;
+		p.mem[p.regs.ma] = ++p.regs.md;
+		if (p.regs.md == 0) 
+			++p.regs.pc;
 		break;
 
     case OpCode::DCA:
-		r.md = r.ac;
-		r.ac = 0;
-		mem[r.ma] = r.md;
+		p.regs.md = p.regs.ac;
+		p.regs.ac = 0;
+		p.mem[p.regs.ma] = p.regs.md;
 		break;
 
     case OpCode::JMS:
-		mem[r.ma] = r.pc;
-		r.pc = ++r.ma;
+		p.mem[p.regs.ma] = p.regs.pc;
+		p.regs.pc = ++p.regs.ma;
 		break;
 
-    case OpCode::JMP:		// Not expected in this state!
+    case OpCode::JMP:						// Not expected in this state!
 		assert(false);
 		break;
 
     case OpCode::IOT:
-		assert(false);		// Not expected in this state!
+		assert(false);						// Not expected in this state!
 		break;
 
-    case OpCode::OPR:		// Not expected in this state!
+    case OpCode::OPR:						// Not expected in this state!
 		assert(false);
 		break;
     }
 
-    s = State::Fetch;
+    p.state = State::Fetch;
 }
 
 /********************************************************************************************//**
  * Break (DMA) state
  ************************************************************************************************/
 void brk() {
-	assert(false);			// Not implemented
-    s = State::Fetch;
+	assert(false);							// Not implemented
+    p.state = State::Fetch;
 }
 
 /********************************************************************************************//**
@@ -344,7 +354,7 @@ static void disasm_opr(unsigned instr) {
 
 	} else if ((instr & GROUP2) == GROUP2) {
 		if ((instr & GRP2_SKP_BIT) == GRP2_SKP_BIT) {	// SKP bit is 1
-			bool condition = false;						// true for unconditional SKP
+			bool condition = false;			// true for unconditional SKP
 
 			if ((instr & GRP2_SPA) == GRP2_SPA) {	condition = true;	cout << "SPA ";	}
 			if ((instr & GRP2_SNA) == GRP2_SNA) {	condition = true;	cout << "SNA ";	}
@@ -363,7 +373,7 @@ static void disasm_opr(unsigned instr) {
 		if ((instr & GRP2_HLT) == GRP2_HLT)								cout << "HLT ";
 
 	} else
-		assert(false);									// Other groups are not supported... yet.
+		assert(false);						// Other groups are not supported... yet.
 }
 
 /********************************************************************************************//**
@@ -383,7 +393,7 @@ static void disasm_mri(const Decode& d) {
 	if (d.i)
 		cout << "I ";
 	cout	<< setw(4)	<< d.eaddr
-			<< " (" << setw(4) << mem[d.eaddr] << ')';
+			<< " (" << setw(4) << p.mem[d.eaddr] << ')';
 }
 
 
@@ -395,7 +405,7 @@ static void disasm(unsigned addr, unsigned instr) {
 
 	cout	<< oct << setfill('0');
 	cout	<< setw(4) 	<< addr 		<< ' '
-			<< setw(4)	<< mem[addr]	<< ' ';
+			<< setw(4)	<< p.mem[addr]	<< ' ';
 	switch (d.op) {
 		case OpCode::OPR:	disasm_opr(instr);		break;
 		case OpCode::IOT: 	disasm_iot(instr);		break;
@@ -407,30 +417,30 @@ static void disasm(unsigned addr, unsigned instr) {
  * Dump the processor state
  ************************************************************************************************/
 static void dumpState() {
-	const double	us = ncycles * 1.5;			// Not accurate, IOT takes 4.5us!
+	const double	us = p.nCycles * 1.5;	// Not accurate, IOT takes 4.5us!
 
 	cout << oct << setfill('0');
 
     cout
-			<< "PC "	<< setw(4)	<< r.pc			<< ' '
-			<< '('		<< setw(4) 	<< mem[r.pc]	<< ") "
-		 	<< "L "					<< r.l 			<< ' '
-			<< "AC "	<< setw(4)	<< r.ac			<< '\n' 
+			<< "PC "	<< setw(4)	<< p.regs.pc		<< ' '
+			<< '('		<< setw(4) 	<< p.mem[p.regs.pc]	<< ") "
+		 	<< "L "					<< p.regs.l 		<< ' '
+			<< "AC "	<< setw(4)	<< p.regs.ac		<< '\n' 
 
-    		<< "MA "	<< setw(4)	<< r.ma			<< ' '
-			<< '('		<< setw(4)	<<	mem[r.ma]	<< ")     "
-           	<< "MD "	<< setw(4)	<< r.md			<< ' '
-           	<< "SR "	<< setw(4)	<< r.sr			<< '\n'
+    		<< "MA "	<< setw(4)	<< p.regs.ma		<< ' '
+			<< '('		<< setw(4)	<< p.mem[p.regs.ma]	<< ")     "
+           	<< "MD "	<< setw(4)	<< p.regs.md		<< ' '
+           	<< "SR "	<< setw(4)	<< p.regs.sr		<< '\n'
 
-			<< "IR "				<< r.ir			<< ' '
+			<< "IR "				<< p.regs.ir		<< ' '
 			<< setfill(' ')
-						<< setw(2)  << s			<< ' '
-						<< setw(4)	<< ninstr		<< " instrs, "
-						<< setw(4)	<< ncycles		<< " cycles, "
-			<< '(' 					<< us 			<< " us)\n";
+						<< setw(2)  << p.state			<< ' '
+						<< setw(4)	<< p.nInstr			<< " instrs, "
+						<< setw(4)	<< p.nCycles		<< " cycles, "
+			<< '(' 					<< us 				<< " us)\n";
 
-	if (s == State::Fetch) {
-		disasm(r.pc, mem[r.pc]);
+	if (p.state == State::Fetch) {
+		disasm(p.regs.pc, p.mem[p.regs.pc]);
 		cout	<< '\n';
 	}
 }
@@ -449,7 +459,7 @@ static bool digit(const string& s) {
 			cerr << "'" << i << "i is less than " << UINT12_MAX << "\n";
 
 		else
-			r.sr = i;
+			p.regs.sr = i;
 
 	} catch (std::invalid_argument const& ex) {
         return false;							// Ignore, not a "digit"
@@ -467,17 +477,17 @@ static bool digit(const string& s) {
 static bool frontpanel() {
 	dumpState();
  
-    static string lcmd = "?";				// last comand
-    string cmd = "";						// current command
+    static string lcmd = "?";					// last comand
+    string cmd = "";							// current command
 
     cout << "> ";
     if (!getline(cin, cmd))
-		return true;						// Ctrl-D - exit
+		return true;							// Ctrl-D - exit
 
 	if (cmd == "") 
-		cmd = lcmd;							// Repeat last...
+		cmd = lcmd;								// Repeat last...
 
-	if (	 cmd == "c" || cmd == "cont")	run = true;
+	if (	 cmd == "c" || cmd == "cont")		p.run = true;
 	else if (cmd == "?" || cmd == "h" || cmd == "help") {
 		cout	<< "number      -- Set Sr\n"
 				<< "?|h[elp]    -- Print help\n"
@@ -492,20 +502,20 @@ static bool frontpanel() {
 				<< "<return>    -- Same as cont\n"
 				<< "<ctrl-d>    -- Same as q[uit]\n";
 	} else if (cmd == "e" || cmd == "examine") {
-		r.md = mem[r.pc];
-		r.ma = r.pc++;
-	} else if (cmd == "la" || cmd == "ldaddr")	r.pc = r.sr;
-	else if (cmd == "nosinstr")					sw.sinstr = false;
-	else if (cmd == "nosstep")					sw.sstep = false;
-	else if (cmd == "sinstr")					sw.sinstr = true;
-	else if (cmd == "sstep")					sw.sstep = true;
+		p.regs.md = p.mem[p.regs.pc];
+		p.regs.ma = p.regs.pc++;
+	} else if (cmd == "la" || cmd == "ldaddr")	p.regs.pc = p.regs.sr;
+	else if (cmd == "nosinstr")					p.sw.sinstr = false;
+	else if (cmd == "nosstep")					p.sw.sstep = false;
+	else if (cmd == "sinstr")					p.sw.sinstr = true;
+	else if (cmd == "sstep")					p.sw.sstep = true;
 	else if (cmd == "s" || cmd == "start") {
-		r.l				= false;
-		r.ac = r.md 	= 0;
-		r.ma 			= r.pc;
-		s 				= State::Fetch;
-		run 			= true;
-	} else if (cmd == "q" || cmd == "quit")				return true;
+		p.regs.l				= false;
+		p.regs.ac = p.regs.md	= 0;
+		p.regs.ma 				= p.regs.pc;
+		p.state					= State::Fetch;
+		p.run 					= true;
+	} else if (cmd == "q" || cmd == "quit")		return true;
 	else if (digit(cmd))
 		;
     else 
@@ -520,12 +530,12 @@ static bool frontpanel() {
  * Run the processor/debugger...
  ************************************************************************************************/
 int process() {
-	run = false;					// Processor starts in idle mode...
+	p.run = false;					// Processor starts in idle mode...
     for (;;) {
-		if (run) {
+		if (p.run) {
             do {					// Next instruction (mem[r.pc])
                 do {				// 	Next memory state
-                    switch(s) {
+                    switch(p.state) {
                     case State::Fetch:      fetch();    break;
                     case State::Defer:      defer();    break;
                     case State::Execute:    execute();  break;
@@ -533,12 +543,12 @@ int process() {
                     default: cerr << "unknown state!\n";
                     }
 
-					++ncycles;
+					++p.nCycles;
 
-                } while (run && !sw.sstep && s != State::Fetch);
-            } while (run && !sw.sinstr && !sw.sstep);
+                } while (p.run && !p.sw.sstep && p.state != State::Fetch);
+            } while (p.run && !p.sw.sinstr && !p.sw.sstep);
 
-            run = run && !sw.sstep && !sw.sinstr;
+            p.run = p.run && !p.sw.sstep && !p.sw.sinstr;
 
         } else if (frontpanel())
 			return 0;
@@ -567,7 +577,7 @@ static bool load_BIN (const string& filename) {
 	unsigned	data = 0;
 	uint8_t		byte;
 	char		c;
-	BIN_State	s = BIN_State::DataMSB;
+	BIN_State	bstate = BIN_State::DataMSB;
 
 	while (ifs.get(c)) {
 		byte = static_cast<uint8_t>(c);
@@ -576,32 +586,32 @@ static bool load_BIN (const string& filename) {
 			continue;
 
 		if ((byte & BIN_ORG_Mask) == BIN_ORG_Mask)
-			s = BIN_State::OriginMSB;
+			bstate = BIN_State::OriginMSB;
 
-		switch (s) {
+		switch (bstate) {
 			case BIN_State::Leader:
 				assert(false);
 				break;
 
 			case BIN_State::OriginMSB:
-				r.pc = (byte & BIN_DATA_Mask) << BIN_MSB_Shift;
-				s = BIN_State::OriginLSB;
+				p.regs.pc = (byte & BIN_DATA_Mask) << BIN_MSB_Shift;
+				bstate = BIN_State::OriginLSB;
 				break;
 
 			case BIN_State::OriginLSB:
-				r.pc |= byte;
-				s = BIN_State::DataMSB;
+				p.regs.pc |= byte;
+				bstate = BIN_State::DataMSB;
 				break;
 
 			case BIN_State::DataMSB:
 				data = (byte & BIN_DATA_Mask) << BIN_MSB_Shift;
-				s = BIN_State::DataLSB;
+				bstate = BIN_State::DataLSB;
 				break;
 
 			case BIN_State::DataLSB:
 				data |= byte;
-				mem[r.pc++] = data;
-				s = BIN_State::DataMSB;
+				p.mem[p.regs.pc++] = data;
+				bstate = BIN_State::DataMSB;
 				break;
 
 			default:
@@ -650,7 +660,6 @@ int main (int argc, char** argv) {
 				}
 			}
 
-			
 		} else if (!load_BIN(arg))
 			return 1;
 	}
