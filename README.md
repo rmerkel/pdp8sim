@@ -32,17 +32,15 @@ Note that [PALBART](https://www.pdp8online.com/ftp/software/palbart/palbart.c) w
 
 ### Bugs fixed
 
-* JMS fixed!
-* Double assign in defer fixed.
-* OPR Group 1 and 2, and MRI instructions mostly tested.
+* OPR Group 1 and 2, and MRI instructions tested.
 
 ### General 
 * IOT, interrupts and break are not supported!
 * Can load BIN files from the command line. Maybe add support for RIM format?
   Auto loading of RIM and, or BIN loaders?
-* No external devices... yet! Current thinking is to model each device as a
-  independent thread. How the FrontPanel (debug prompt) sharing the console
-  (standard input/output) is still unclear.
+* No devices... yet! Current thinking is to model each device as a independent
+  thread. How the FrontPanel (debug prompt) sharing the console (standard
+  input/output) is still unclear.
 * Currently run time is # of cycles * 1.5us. However, that won't work for IOT
   that cause a pause, extending Fetch to 3.75 us (2.5 machine cycles). The end
   result in a IOT time of 4.5us. See PDP-8 Maintenance Manual, Input/Output

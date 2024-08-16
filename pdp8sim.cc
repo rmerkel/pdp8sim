@@ -472,51 +472,62 @@ static bool digit(const string& s) {
 }
 
 /********************************************************************************************//**
+ * @note	maybe replace with a map<string, action>?
+ *
  * @return true to exit the simulator
  ************************************************************************************************/
 static bool frontpanel() {
 	dumpState();
  
-    static string lcmd = "?";					// last comand
-    string cmd = "";							// current command
+    static string lcmd = "?";			// last comand
+    string cmd = "";					// current command
 
     cout << "> ";
     if (!getline(cin, cmd))
-		return true;							// Ctrl-D - exit
+		return true;					// Ctrl-D - exit
 
-	if (cmd == "") 
-		cmd = lcmd;								// Repeat last...
+	if (cmd == "")
+		cmd = lcmd;						// Repeat last...
 
-	if (	 cmd == "c" || cmd == "cont")		p.run = true;
-	else if (cmd == "?" || cmd == "h" || cmd == "help") {
-		cout	<< "number      -- Set Sr\n"
-				<< "?|h[elp]    -- Print help\n"
-				<< "c[ont]      -- Continue\n"
-				<< "e[examine]  -- Examine memory\n"
-				<< "la          -- Load Address\n"
-				<< "ldaddr      -- Load Address\n"
-				<< "[no]sinstr  -- Single Instruction\n"
-				<< "[no]sstep   -- Single Step\n"
-				<< "s[tart]     -- Start\n"
-				<< "q[uit]      -- Exit\n"
-				<< "<return>    -- Same as cont\n"
-				<< "<ctrl-d>    -- Same as q[uit]\n";
-	} else if (cmd == "e" || cmd == "examine") {
+	if (cmd.find("c") == 0)				// C[ontinue]
+		p.run = true;
+
+										// Help
+	else if (cmd == "?" || cmd.find("h") == 0) {
+		cout	<< "<number>     -- Set Sr\n"
+				<< "?|h[elp]     -- Print help\n"
+				<< "c[ont]       -- Continue\n"
+				<< "e[examine]   -- Examine memory\n"
+				<< "ld[addr]     -- Load address\n"
+				<< "la[ddr]      -- Load address\n"
+				<< "[no]si[nstr] -- Single instruction\n"
+				<< "[no]ss[tep]  -- Single step\n"
+				<< "s[tart]      -- Start\n"
+				<< "q[uit]       -- Exit\n"
+				<< "<return>     -- Repeat last command\n"
+				<< "<ctrl-d>     -- Same as q[uit]\n";
+	} else if (cmd.find("e")	== 0) {	// examine memory
 		p.regs.md = p.mem[p.regs.pc];
 		p.regs.ma = p.regs.pc++;
-	} else if (cmd == "la" || cmd == "ldaddr")	p.regs.pc = p.regs.sr;
-	else if (cmd == "nosinstr")					p.sw.sinstr = false;
-	else if (cmd == "nosstep")					p.sw.sstep = false;
-	else if (cmd == "sinstr")					p.sw.sinstr = true;
-	else if (cmd == "sstep")					p.sw.sstep = true;
-	else if (cmd == "s" || cmd == "start") {
+	} else if (cmd.find("ld")	== 0 || cmd.find("la") == 0)
+		p.regs.pc = p.regs.sr;			// load address
+	else if (cmd.find("nosi")	== 0)	// noinstr
+		p.sw.sinstr = false;
+	else if (cmd.find("noss")	== 0)	// nosstep
+		p.sw.sstep = false;
+	else if (cmd.find("si")		== 0)	// sinstr
+		p.sw.sinstr = true;
+	else if (cmd.find("ss")		== 0)	// sstep
+		p.sw.sstep = true;
+	else if (cmd.find( "s")		== 0) {	// start
 		p.regs.l				= false;
 		p.regs.ac = p.regs.md	= 0;
 		p.regs.ma 				= p.regs.pc;
 		p.state					= State::Fetch;
 		p.run 					= true;
-	} else if (cmd == "q" || cmd == "quit")		return true;
-	else if (digit(cmd))
+	} else if (cmd == "q" || cmd == "quit")
+		return true;					// quit
+	else if (digit(cmd))				// number (simple)
 		;
     else 
 		cerr << "Unknown command: '" << cmd << "!\n";
