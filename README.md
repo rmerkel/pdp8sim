@@ -64,6 +64,7 @@ Currently ah-hoc running of the example programs.
 ### PDP-8/I Major State Flow Diagram
 
 The following diagram, derived from the PDP-8/E Maintenance Manual,
+Figure 3-4 PDP-8/E Major State Flow Diagram,
 was the primary reference for cycle-realistic operation of the simulator.
 
 
@@ -103,6 +104,9 @@ was the primary reference for cycle-realistic operation of the simulator.
 * SR - Switch Register (12-bits)
 
 ### Instruction Formats
+
+The following diagrams where derived from the PDP-8/E Maintenance Manual,
+Figure 1-3, Instruction Formats.
 
 #### Memory Reference Instruction (MRI) Format
 
