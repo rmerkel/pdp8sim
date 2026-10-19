@@ -1,0 +1,6 @@
+/ Infinite loop to test Ctrl-C/Halt switch
+
+*200
+START,  JMP START
+        HLT
+$
