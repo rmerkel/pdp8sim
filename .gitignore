@@ -36,5 +36,6 @@
 *.rim
 *.bin
 
+Doxyfile.bak
 docs
 pdp8sim
