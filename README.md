@@ -1,6 +1,6 @@
 # pdp8sim - Yet Another PDP-8 Simulator
 
-Version 0.7 pre-release
+Version 0.8 pre-release
 
 A PDP-8 simulator, just for the heck of it!
 
@@ -34,7 +34,8 @@ Note that [PALBART](https://www.pdp8online.com/ftp/software/palbart/palbart.c) w
 
 ### Bugs fixed
 
-* OPR Group 1 and 2, and MRI instructions tested.
+* Decode.cc builds, includes cstdint
+* Ctrl-C halts the simulator.
 
 ### General 
 
@@ -48,6 +49,7 @@ Note that [PALBART](https://www.pdp8online.com/ftp/software/palbart/palbart.c) w
   that cause a pause, extending Fetch to 3.75 us (2.5 machine cycles). The end
   result in a IOT time of 4.5us. See PDP-8 Maintenance Manual, Input/Output
   Transfer (IOT), pg 2-15.
+* Ctrl-C will halt the simulator.
 
 ### Future
 

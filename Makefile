@@ -113,7 +113,7 @@ help:
 	@echo "    help    - prints this message."
 	@echo "    pdp8sim - to build the simulator."
 	@echo "    pr      - prepare source for printing"
-	@echo "    test    - NOT IMPLEMENTATED!\n"
+	@echo "    test    - build and run the simulator."
 	@echo ""
 
 ################################################################################
@@ -128,6 +128,5 @@ pr:
 ################################################################################
 
 test: all
-	./xp.sh
-	./xp2.sh
+	./${EXE}
 

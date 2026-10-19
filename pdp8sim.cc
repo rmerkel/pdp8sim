@@ -5,6 +5,7 @@
  ************************************************************************************************/
 
 #include <cassert>
+#include <csignal>
 #include <cstdint>
 #include <fstream>
 #include <iomanip>
@@ -505,6 +506,7 @@ static bool frontpanel() {
 				<< "s[tart]      -- Start\n"
 				<< "q[uit]       -- Exit\n"
 				<< "<return>     -- Repeat last command\n"
+				<< "<ctrl-c>     -- Halt\n"
 				<< "<ctrl-d>     -- Same as q[uit]\n";
 	} else if (cmd.find("e")	== 0) {	// examine memory
 		p.regs.md = p.mem[p.regs.pc];
@@ -633,6 +635,15 @@ static bool load_BIN (const string& filename) {
 	return true;
 }
 
+
+/********************************************************************************************//**
+ * SIGINT handler 
+ ************************************************************************************************/
+void signal_handler(int signal_num) {
+	assert(signal_num ==  SIGINT);
+	p.run = false;
+}
+
 /********************************************************************************************//**
  * Write an help diagnostic to standard error.
  ************************************************************************************************/
@@ -649,6 +660,12 @@ static void help() {
  * The PDP8 simulator
  ************************************************************************************************/
 int main (int argc, char** argv) {
+	if (signal(SIGINT, signal_handler) == SIG_ERR) {
+		cerr << progName << ": error registering SIGINT handler!\n";
+		return 1;
+	}
+
+
 	for (int argn = 1; argn < argc; ++argn) {
 		const string arg = argv[argn];
 
