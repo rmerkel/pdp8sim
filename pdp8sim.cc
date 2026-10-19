@@ -664,7 +664,7 @@ int main (int argc, char** argv) {
 
 				switch(c) {
 					case '?': case 'h': help();			return 1;
-					case 'v': cout << "version 0.7\n";	return 1;
+					case 'v': cout << "version 0.8\n";	return 1;
 					default:
 						cerr << progName << ": unknown option '" << c << "'.\n";
 						return 1;

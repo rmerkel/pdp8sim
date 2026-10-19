@@ -36,6 +36,8 @@
 *.rim
 *.bin
 
+# Leftover from doxygen -u
 Doxyfile.bak
+
 docs
 pdp8sim
