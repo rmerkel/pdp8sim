@@ -16,8 +16,7 @@ const unsigned Addr_Mask		= 00177;	///< Address/page offset mask
 /********************************************************************************************//**
  * Default constructor
  ************************************************************************************************/
-Decode::Decode() : op{OpCode::AND}, i {false}, p {false}, eaddr {0}, bits {0} {
-}
+Decode::Decode() : op{OpCode::AND}, i {false}, p {false}, eaddr {0}, bits {0} {}
 
 /********************************************************************************************//**
  * Decode a instruction

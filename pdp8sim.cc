@@ -4,6 +4,8 @@
  * A PDP-8 Simulator
  ************************************************************************************************/
 
+#include "pdp8sim.h"
+
 #include <cassert>
 #include <csignal>
 #include <cstdint>
@@ -12,101 +14,19 @@
 #include <ios>
 #include <iostream>
 #include <string>
+#include <sys/select.h>
+#include <unistd.h>
 
 #include "decode.h"
+#include "iot.h"
 #include "opcode.h"
 #include "registers.h"
 #include "state.h"
 
 using namespace std;
 
-static const char* progName = "pdp8sim";
+PDP8	p;
 
-/************************************************************************************************
- * Constants
- ************************************************************************************************/
-
-const unsigned UINT12_MAX		= 07777;
-const int	   INT12_MAX		= +2047;
-const int	   INT12_MIN		= -2048;
-
-/************************************************************************************************
- * Bit maskes
- ************************************************************************************************/
-
-const unsigned Sign_Mask		= 04000;	///< 2's complement sign mask
-
-// OPER Group 1
-
-const unsigned GROUP1			= 00400;	///< Bit 3 is clear
-
-const unsigned GRP1_NOP			= 07000;	///< NOP
-const unsigned GRP1_CLA			= 07200;	///< Clear AC,	sequence 1
-const unsigned GRP1_CLL			= 07100;	///< Clear link, sequence 1
-const unsigned GRP1_CMA			= 07040;	///< Complement AC, sequence 2
-const unsigned GRP1_CML			= 07020;	///< Complement link, sequence 2
-const unsigned GRP1_RAR			= 07010;	///< Rotate AC and L right 1, sequence 4
-const unsigned GRP1_RTR			= 07012;	///< Rotate AC and L right 2, sequence 4
-const unsigned GRP1_RTL			= 07006;	///< Rotate AC and L left 1, sequence 4
-const unsigned GRP1_RAL			= 07004;	///< Rotate AC and L left 2, sequence 4
-const unsigned GRP1_IAC			= 07001;	///< Increment AC, sequence 3
-
-// OPER Group 2
-
-const unsigned GROUP2			= 00400;	///< Bit 3 is set, bit 11 is clear.
-
-const unsigned	GRP2_SKP_BIT	= 00010;	///< Skip bit for bits 5-7
-
-const unsigned	GRP2_SMA		= 07500;	///< Skip on minus AC, sequence 1
-const unsigned	GRP2_SZA		= 07440;	///< Skip on zero AC, sequence 1
-const unsigned	GRP2_SPA		= 07510;	///< Skip on plus AC, sequence 1
-const unsigned 	GRP2_SNA		= 07450;	///< Skip on plus AC, sequence 1
-const unsigned	GRP2_SNL		= 07420;	///< Skip on non-zero AC, sequence 1
-const unsigned	GRP2_SZL		= 07430;	///< Skip on zero link, sequence 1
-const unsigned	GRP2_SKP		= 07410;	///< Skip unconditionally, sequence 1
-const unsigned	GRP2_OSR		= 07404;	///< Inclusive OR, switch register with AC, sequence 3
-const unsigned	GRP2_HLT		= 07402;	///< Halt the processor, sequence 3
-const unsigned	GRP2_CLA		= 07600;	///< Clear AC, sequence 2
-
-// IOT
-
-const unsigned	IOT_DEV_SEL		= 00770;	///< Device ID
-const unsigned	IOT_DEV_SHIFT	= 3;
-
-const unsigned	IOT_OP			= 00007;	///< Operations
-
-/********************************************************************************************//**
- * Front Panel switches
- ************************************************************************************************/
-struct Switches {
-    bool        sstep   : 1;
-    bool        sinstr  : 1;
-
-    Switches() : sstep{false}, sinstr{false} {};
-};
-
-/************************************************************************************************
- * Processor State
- ************************************************************************************************/
-struct PDP8 {
-	bool        run;
-	Switches    sw;
-	Registers	regs;
-	State       state;
-	unsigned    mem[4096];
-	unsigned	nCycles;
-	unsigned	nInstr;
-
-	PDP8();
-};
-
-/********************************************************************************************//**
- ************************************************************************************************/
-PDP8::PDP8() : run {false}, state {State::Fetch}, nCycles {0}, nInstr {0} {
-}
-
-static PDP8	p;
-    
 /********************************************************************************************//**
  ************************************************************************************************/
 static void ral() {
@@ -227,7 +147,7 @@ static void oper(unsigned instr) {
 /********************************************************************************************//**
  * Fetch next instruction, handle JMP direct
  ************************************************************************************************/
-void fetch() {
+static void fetch() {
 	++p.nInstr;
 
 	p.regs.md 		= p.mem[p.regs.pc++];
@@ -236,7 +156,7 @@ void fetch() {
 	p.regs.ma 		= d.eaddr;
 
     if (p.regs.ir == OpCode::IOT) {			// IOT?
-		assert(false);						// ... not implemented!
+		iot();
         p.state = State::Fetch;
 
 	} else if (p.regs.ir == OpCode::OPR) {	// OPR?
@@ -257,7 +177,7 @@ void fetch() {
 /********************************************************************************************//**
  * Defer state
  ************************************************************************************************/
-void defer() {
+static void defer() {
 	p.regs.md = p.mem[p.regs.ma];			// Fetch indirect operand
 
 	if (p.regs.ma >= 010 && p.regs.ma <= 017)
@@ -276,7 +196,7 @@ void defer() {
 /********************************************************************************************//**
  * Execute state
  ************************************************************************************************/
-void execute() {
+static void execute() {
     p.regs.md = p.mem[p.regs.ma];
 
     switch(p.regs.ir) {
@@ -334,7 +254,7 @@ void brk() {
 
 /********************************************************************************************//**
  ************************************************************************************************/
-static void disasm_opr(unsigned instr) {
+static void opr_disasm(unsigned instr) {
 	
 	if ((instr & GROUP1) == 0) {
 
@@ -379,17 +299,7 @@ static void disasm_opr(unsigned instr) {
 
 /********************************************************************************************//**
  ************************************************************************************************/
-static void disasm_iot(unsigned instr) {
-	cout	<< "IOT ";
-	const unsigned dev	= (instr & IOT_DEV_SEL) >> IOT_DEV_SHIFT;
-	const unsigned ops	= instr & IOT_OP;
-	cout << setw(3)	<< dev  << ' '
-		 << setw(1)  << ops	<< "\n";
-}
-
-/********************************************************************************************//**
- ************************************************************************************************/
-static void disasm_mri(const Decode& d) {
+static void mri_disasm(const Decode& d) {
 	cout 	<< d.op	<< ' ';
 	if (d.i)
 		cout << "I ";
@@ -408,9 +318,9 @@ static void disasm(unsigned addr, unsigned instr) {
 	cout	<< setw(4) 	<< addr 		<< ' '
 			<< setw(4)	<< p.mem[addr]	<< ' ';
 	switch (d.op) {
-		case OpCode::OPR:	disasm_opr(instr);		break;
-		case OpCode::IOT: 	disasm_iot(instr);		break;
-		default:			disasm_mri(d);
+		case OpCode::OPR:	opr_disasm(instr);		break;
+		case OpCode::IOT: 	iot_disasm(instr);		break;
+		default:			mri_disasm(d);
 	}
 }
 
@@ -418,8 +328,6 @@ static void disasm(unsigned addr, unsigned instr) {
  * Dump the processor state
  ************************************************************************************************/
 static void dumpState() {
-	const double	us = p.nCycles * 1.5;	// Not accurate, IOT takes 4.5us!
-
 	cout << oct << setfill('0');
 
     cout
@@ -436,9 +344,10 @@ static void dumpState() {
 			<< "IR "				<< p.regs.ir		<< ' '
 			<< setfill(' ')
 						<< setw(2)  << p.state			<< ' '
-						<< setw(4)	<< p.nInstr			<< " instrs, "
-						<< setw(4)	<< p.nCycles		<< " cycles, "
-			<< '(' 					<< us 				<< " us)\n";
+						<< setw(4)	<< p.nInstr			<< " Instructions, "
+						<< setw(4)	<< p.nCycles		<< " Cycles, "
+			<< '(' 					<< p.runtime		<< " us)"
+			<< '\n';
 
 	if (p.state == State::Fetch) {
 		disasm(p.regs.pc, p.mem[p.regs.pc]);
@@ -495,7 +404,7 @@ static bool frontpanel() {
 
 										// Help
 	else if (cmd == "?" || cmd.find("h") == 0) {
-		cout	<< "<number>     -- Set Sr\n"
+		cout	<< "<number>     -- Set SR\n"
 				<< "?|h[elp]     -- Print help\n"
 				<< "c[ont]       -- Continue\n"
 				<< "e[examine]   -- Examine memory\n"
@@ -524,7 +433,7 @@ static bool frontpanel() {
 	else if (cmd.find( "s")		== 0) {	// start
 		p.regs.l				= false;
 		p.regs.ac = p.regs.md	= 0;
-		p.regs.ma 				= p.regs.pc;
+		p.regs.ma 				= p.regs.pc;			// Shouldn't this be from the switch register?
 		p.state					= State::Fetch;
 		p.run 					= true;
 	} else if (cmd == "q" || cmd == "quit")
@@ -540,6 +449,15 @@ static bool frontpanel() {
 }
 
 /********************************************************************************************//**
+ * SIGINT handler 
+ ************************************************************************************************/
+void signal_handler(int signal_num) {
+	assert(signal_num ==  SIGINT);
+	p.run = false;
+	cout << endl;
+}
+
+/********************************************************************************************//**
  * Run the processor/debugger...
  ************************************************************************************************/
 int process() {
@@ -547,7 +465,10 @@ int process() {
     for (;;) {
 		if (p.run) {
             do {					// Next instruction (mem[r.pc])
+				iot_update_devs();
+
                 do {				// 	Next memory state
+
                     switch(p.state) {
                     case State::Fetch:      fetch();    break;
                     case State::Defer:      defer();    break;
@@ -557,6 +478,9 @@ int process() {
                     }
 
 					++p.nCycles;
+					p.runtime += 1.5;
+
+					// Calc cumulative runtime here...
 
                 } while (p.run && !p.sw.sstep && p.state != State::Fetch);
             } while (p.run && !p.sw.sinstr && !p.sw.sstep);
@@ -571,127 +495,16 @@ int process() {
 }
 
 /********************************************************************************************//**
- * Load a BIN file into memory
+ * Initialize the simulator
+ *
+ * @bug	Maybe allocate and return a PDP8 object, to be passed to [PDP8sim_]process()?
  ************************************************************************************************/
-static bool load_BIN (const string& filename) {
-	enum class BIN_State { Leader, OriginMSB, OriginLSB, DataMSB, DataLSB, Trailer };
-
-	ifstream ifs{filename};
-	if (!ifs) {
-		cerr << progName << ": can't open '" << filename << "'!\n";
-		return false;
-	}
-
-	const unsigned BIN_LEADER 		= 00200;
-	const unsigned BIN_ORG_Mask		= 00100;
-	const unsigned BIN_DATA_Mask	= 00077;
-	const unsigned BIN_MSB_Shift	= 6;
-
-	unsigned	data = 0;
-	uint8_t		byte;
-	char		c;
-	BIN_State	bstate = BIN_State::DataMSB;
-
-	while (ifs.get(c)) {
-		byte = static_cast<uint8_t>(c);
-
-		if (byte == BIN_LEADER)
-			continue;
-
-		if ((byte & BIN_ORG_Mask) == BIN_ORG_Mask)
-			bstate = BIN_State::OriginMSB;
-
-		switch (bstate) {
-			case BIN_State::Leader:
-				assert(false);
-				break;
-
-			case BIN_State::OriginMSB:
-				p.regs.pc = (byte & BIN_DATA_Mask) << BIN_MSB_Shift;
-				bstate = BIN_State::OriginLSB;
-				break;
-
-			case BIN_State::OriginLSB:
-				p.regs.pc |= byte;
-				bstate = BIN_State::DataMSB;
-				break;
-
-			case BIN_State::DataMSB:
-				data = (byte & BIN_DATA_Mask) << BIN_MSB_Shift;
-				bstate = BIN_State::DataLSB;
-				break;
-
-			case BIN_State::DataLSB:
-				data |= byte;
-				p.mem[p.regs.pc++] = data;
-				bstate = BIN_State::DataMSB;
-				break;
-
-			default:
-				assert(false);
-		}
-	}
-
-	return true;
-}
-
-
-/********************************************************************************************//**
- * SIGINT handler 
- ************************************************************************************************/
-void signal_handler(int signal_num) {
-	assert(signal_num ==  SIGINT);
-	p.run = false;
-}
-
-/********************************************************************************************//**
- * Write an help diagnostic to standard error.
- ************************************************************************************************/
-static void help() {
-	cerr	<< "Usage: " << progName << " [options... | filenames...]\n"
-			<< "Where options is zero or more of:\n"
-			<< "-h|?     -- print this message, and return 1\n"
-			<< "-v       -- print the version, and return 1\n"
-			<< '\n'
-			<< "And where filenames is zero or more program file names to load in BIN format\n";
-}
-
-/********************************************************************************************//**
- * The PDP8 simulator
- ************************************************************************************************/
-int main (int argc, char** argv) {
+int pdp8_init() {
+	// Ctrl-C (SIGINT) as the front pannel HALT switch
 	if (signal(SIGINT, signal_handler) == SIG_ERR) {
-		cerr << progName << ": error registering SIGINT handler!\n";
+		cerr << progName << ": error registering SIGINT handler!" << endl;
 		return 1;
 	}
 
-
-	for (int argn = 1; argn < argc; ++argn) {
-		const string arg = argv[argn];
-
-		if (arg == "")
-			continue;
-
-		if (arg == "-")
-			cerr << progName << ": unknown option '-',\n";
-
-		if (arg[0] == '-') {
-			for (auto i = arg.begin() + 1; i != arg.end(); ++i) {
-				char c = *i;
-
-				switch(c) {
-					case '?': case 'h': help();			return 1;
-					case 'v': cout << "version 0.8\n";	return 1;
-					default:
-						cerr << progName << ": unknown option '" << c << "'.\n";
-						return 1;
-				}
-			}
-
-		} else if (!load_BIN(arg))
-			return 1;
-	}
-
-	return process();
+	return 0;
 }
-
