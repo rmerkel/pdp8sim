@@ -13,6 +13,9 @@
 #include <iostream>
 #include <string>
 
+#include <sys/select.h>
+#include <unistd.h>
+
 #include "decode.h"
 #include "opcode.h"
 #include "registers.h"
@@ -31,7 +34,7 @@ const int	   INT12_MAX		= +2047;
 const int	   INT12_MIN		= -2048;
 
 /************************************************************************************************
- * Bit maskes
+ * Bit masks
  ************************************************************************************************/
 
 const unsigned Sign_Mask		= 04000;	///< 2's complement sign mask
@@ -102,11 +105,27 @@ struct PDP8 {
 
 /********************************************************************************************//**
  ************************************************************************************************/
-PDP8::PDP8() : run {false}, state {State::Fetch}, nCycles {0}, nInstr {0} {
-}
+PDP8::PDP8() : run {false}, state {State::Fetch}, nCycles {0}, nInstr {0} {}
 
 static PDP8	p;
-    
+
+#if 1
+/************************************************************************************************
+ * IOT Support
+ ************************************************************************************************/
+struct IOT {
+	bool read_ready;
+	bool write_ready;
+
+	IOT();
+};
+
+IOT::IOT() : read_ready(false), write_ready(false) {}
+
+static IOT tty;
+
+#endif
+
 /********************************************************************************************//**
  ************************************************************************************************/
 static void ral() {
@@ -236,7 +255,43 @@ void fetch() {
 	p.regs.ma 		= d.eaddr;
 
     if (p.regs.ir == OpCode::IOT) {			// IOT?
-		assert(false);						// ... not implemented!
+
+		const unsigned dev	= (p.regs.md & IOT_DEV_SEL) >> IOT_DEV_SHIFT;
+		const unsigned ops	= p.regs.md & IOT_OP;
+
+#if 1
+		cerr << setw(3)	<< dev  << ' '
+		 	 << setw(1) << ops	<< endl;
+#endif
+
+		switch (dev) {
+		case 0:							// System
+			if (ops == 1)				// ION, unmask interrupts, with delay so that ION takes effet at the end of the following instuction
+				cerr << "ION is not implemented, ignored." << endl;
+			else if (ops == 2)			// IOF, mask interrupts
+				cerr << "IOF is not implemented, ignoredj." << endl;
+			else {
+				cerr << "Unknown IOT System operation: " << ops << endl;
+				assert(false);
+			}
+			break;
+
+		case 1:							// Highspeed Perforated Tape Reader PR8/I
+				cerr << "RSF/RRB/RFC is not implemented, ignored." << endl;
+			break;
+		case 2:							// Highspeed Perforated Tape Punch  PR8/I
+				cerr << "PSF/PCF/PPC/PLS is not implemented, ignored." << endl;
+
+		case 3: 						// Teletype Keyboard/Reader
+			break;
+		case 4:							// Teletype Teleprinter/Punch
+			break;
+
+		default: 						// Not implemented/supported!
+			cerr << "Unknown or unsupported IOT device: " << dev << endl;
+			assert(false);
+		}
+
         p.state = State::Fetch;
 
 	} else if (p.regs.ir == OpCode::OPR) {	// OPR?
@@ -384,7 +439,7 @@ static void disasm_iot(unsigned instr) {
 	const unsigned dev	= (instr & IOT_DEV_SEL) >> IOT_DEV_SHIFT;
 	const unsigned ops	= instr & IOT_OP;
 	cout << setw(3)	<< dev  << ' '
-		 << setw(1)  << ops	<< "\n";
+		 << setw(1) << ops	<< "\n";
 }
 
 /********************************************************************************************//**
@@ -495,7 +550,7 @@ static bool frontpanel() {
 
 										// Help
 	else if (cmd == "?" || cmd.find("h") == 0) {
-		cout	<< "<number>     -- Set Sr\n"
+		cout	<< "<number>     -- Set SR\n"
 				<< "?|h[elp]     -- Print help\n"
 				<< "c[ont]       -- Continue\n"
 				<< "e[examine]   -- Examine memory\n"
@@ -539,6 +594,16 @@ static bool frontpanel() {
 	return false;
 }
 
+
+/********************************************************************************************//**
+ * SIGINT handler 
+ ************************************************************************************************/
+static void signal_handler(int signal_num) {
+	assert(signal_num ==  SIGINT);
+	p.run = false;
+	cout << endl;
+}
+
 /********************************************************************************************//**
  * Run the processor/debugger...
  ************************************************************************************************/
@@ -547,7 +612,32 @@ int process() {
     for (;;) {
 		if (p.run) {
             do {					// Next instruction (mem[r.pc])
+#if 1								// Maybe check at end of instruction?
+					fd_set		read_fds;
+					fd_set		write_fds;
+					timeval		timeout;
+
+					FD_ZERO(&read_fds);
+					FD_SET(STDIN_FILENO, &read_fds);
+					FD_ZERO(&write_fds);
+					FD_SET(STDOUT_FILENO, & write_fds);
+					timeout.tv_sec = 0;
+					timeout.tv_usec = 0;
+
+					// Select can intercept Ctrl-C (SIGINT) if it is the first character. Treat errors as HALT.
+					if (select(STDOUT_FILENO+1, &read_fds, &write_fds, nullptr, &timeout) < 0)
+						signal_handler(SIGINT); 
+					else {
+						// set interrupt pending here.
+						tty.read_ready  = FD_ISSET(STDIN_FILENO, &read_fds);
+						tty.write_ready = FD_ISSET(STDOUT_FILENO, &write_fds);
+					}
+
+					cout << tty.read_ready << ", " << tty.write_ready << '\n';
+#endif
+
                 do {				// 	Next memory state
+
                     switch(p.state) {
                     case State::Fetch:      fetch();    break;
                     case State::Defer:      defer();    break;
@@ -635,15 +725,6 @@ static bool load_BIN (const string& filename) {
 	return true;
 }
 
-
-/********************************************************************************************//**
- * SIGINT handler 
- ************************************************************************************************/
-void signal_handler(int signal_num) {
-	assert(signal_num ==  SIGINT);
-	p.run = false;
-}
-
 /********************************************************************************************//**
  * Write an help diagnostic to standard error.
  ************************************************************************************************/
@@ -660,12 +741,14 @@ static void help() {
  * The PDP8 simulator
  ************************************************************************************************/
 int main (int argc, char** argv) {
+	// Ctrl-C (SIGINT) as the front pannel HALT switch
 	if (signal(SIGINT, signal_handler) == SIG_ERR) {
-		cerr << progName << ": error registering SIGINT handler!\n";
+		cerr << progName << ": error registering SIGINT handler!" << endl;
 		return 1;
 	}
 
 
+	// Scan the command line...
 	for (int argn = 1; argn < argc; ++argn) {
 		const string arg = argv[argn];
 
@@ -681,17 +764,17 @@ int main (int argc, char** argv) {
 
 				switch(c) {
 					case '?': case 'h': help();			return 1;
-					case 'v': cout << "version 0.8\n";	return 1;
+					case 'v': cout << "version 0.9\n";	return 1;
 					default:
 						cerr << progName << ": unknown option '" << c << "'.\n";
 						return 1;
 				}
 			}
 
-		} else if (!load_BIN(arg))
+		} else if (!load_BIN(arg))			// Load a program file...
 			return 1;
 	}
 
-	return process();
+	return process();						// Run the simulation...
 }
 
