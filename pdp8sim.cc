@@ -101,7 +101,7 @@ struct PDP8 {
 	unsigned    mem[4096];
 	unsigned	nCycles;
 	unsigned	nInstr;
-	double		runtime;
+	double		runtime;						// Cumulative runtine in us.
 
 	PDP8();
 };
@@ -459,7 +459,7 @@ static void disasm_iot(unsigned instr) {
 	const unsigned dev	= (instr & IOT_DEV_SEL) >> IOT_DEV_SHIFT;
 	const unsigned ops	= instr & IOT_OP;
 	cout << setw(3)	<< dev  << ' '
-		 << setw(1) << ops	<< "\n";
+		 << setw(1) << ops;
 }
 
 /********************************************************************************************//**
