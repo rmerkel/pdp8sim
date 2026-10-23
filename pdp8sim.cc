@@ -103,6 +103,11 @@ struct PDP8 {
 	unsigned	nInstr;
 	double		runtime;						// Cumulative runtine in us.
 
+	// IO Bus
+
+	fd_set		read_fds;						// Read device ready flags
+	fd_set		write_fds;						// Write device ready flags
+
 	PDP8();
 };
 
@@ -111,13 +116,6 @@ struct PDP8 {
 PDP8::PDP8() : run {false}, state {State::Fetch}, nCycles {0}, nInstr {0}, runtime(0.0) {}
 
 static PDP8	p;
-
-#if 1
-/********************************************************************************************//**
- ************************************************************************************************/
-fd_set	read_fds;
-fd_set	write_fds;
-#endif
 
 /********************************************************************************************//**
  ************************************************************************************************/
@@ -237,6 +235,76 @@ static void oper(unsigned instr) {
 }
 
 /********************************************************************************************//**
+ * IOT Instruction.
+ ************************************************************************************************/
+void iot() {
+	const	unsigned 	dev	= (p.regs.md & IOT_DEV_SEL) >> IOT_DEV_SHIFT;
+	const	unsigned	ops	= p.regs.md & IOT_OP;
+			bool		rdy	= false;	// Capture before IOP2 clears the device flag.
+
+	switch (dev) {
+	case 0:							// System
+		if (ops == 1)				// ION, unmask interrupts, with delay so that ION takes effet at the end of the following instuction
+			cerr << "ION is not implemented, ignored." << endl;
+		else if (ops == 2)			// IOF, mask interrupts
+			cerr << "IOF is not implemented, ignoredj." << endl;
+		else {
+			cerr << "Unknown IOT System operation: " << ops << endl;
+			assert(false);
+		}
+		break;
+
+	case 1:							// Highspeed Perforated Tape Reader PR8/I
+		cerr << "RSF/RRB/RFC is not implemented, ignored." << endl;
+		break;
+
+	case 2:							// Highspeed Perforated Tape Punch  PR8/I
+		cerr << "PSF/PCF/PPC/PLS not implemented, ignored." << endl;
+
+	case 3: 						// Teletype Keyboard Reader
+		rdy = FD_ISSET(STDIN_FILENO, &p.read_fds);
+		if (ops & 1) {				//	KSF
+			if (rdy)
+				++p.regs.ac;
+		}
+
+		if (ops & 2)				//	KCC
+			FD_CLR(STDIN_FILENO, &p.read_fds);
+
+		if (ops & 4) {				//	KRS
+			int c;
+			read(STDIN_FILENO, &c, 1);
+			p.regs.ac = c;
+		}
+		break;
+
+	case 4:							// Teletype Teleprinter/Punch
+		rdy = FD_ISSET(STDOUT_FILENO, &p.write_fds);
+		if (ops & 1) {				//	TSF
+			if (rdy)
+				++p.regs.pc;
+		}
+
+		if (ops & 2)				//	TCF
+			FD_CLR(STDOUT_FILENO, &p.write_fds);
+			
+		if (ops & 4) {				// 	TPC
+			if (p.regs.ac !=0) {
+				int c = p.regs.ac & 0177;
+				write(STDOUT_FILENO, &c, 1);
+			}
+		}
+		break;
+
+	default: 						// Not implemented/supported!
+		cerr << "Unknown or unsupported IOT device: " << dev << endl;
+		assert(false);
+	}
+
+	p.runtime += 4.5 - 1.5;			// Adjust for IOT
+}
+
+/********************************************************************************************//**
  * Fetch next instruction, handle JMP direct
  ************************************************************************************************/
 void fetch() {
@@ -248,70 +316,7 @@ void fetch() {
 	p.regs.ma 		= d.eaddr;
 
     if (p.regs.ir == OpCode::IOT) {			// IOT?
-		const	unsigned 	dev	= (p.regs.md & IOT_DEV_SEL) >> IOT_DEV_SHIFT;
-		const	unsigned	ops	= p.regs.md & IOT_OP;
-				bool		rdy	= false;	// Capture before IOP2 clears the device flag.
-
-		switch (dev) {
-		case 0:							// System
-			if (ops == 1)				// ION, unmask interrupts, with delay so that ION takes effet at the end of the following instuction
-				cerr << "ION is not implemented, ignored." << endl;
-			else if (ops == 2)			// IOF, mask interrupts
-				cerr << "IOF is not implemented, ignoredj." << endl;
-			else {
-				cerr << "Unknown IOT System operation: " << ops << endl;
-				assert(false);
-			}
-			break;
-
-		case 1:							// Highspeed Perforated Tape Reader PR8/I
-			cerr << "RSF/RRB/RFC is not implemented, ignored." << endl;
-			break;
-
-		case 2:							// Highspeed Perforated Tape Punch  PR8/I
-			cerr << "PSF/PCF/PPC/PLS not implemented, ignored." << endl;
-
-		case 3: 						// Teletype Keyboard Reader
-			rdy = FD_ISSET(STDIN_FILENO, &read_fds);
-			if (ops & 1) {				//	KSF
-				if (rdy)
-					++p.regs.ac;
-			}
-
-			if (ops & 2)				//	KCC
-				FD_CLR(STDIN_FILENO, &read_fds);
-
-			if (ops & 4) {				//	KRS
-				int c;
-				read(STDIN_FILENO, &c, 1);
-				p.regs.ac = c;
-			}
-			break;
-
-		case 4:							// Teletype Teleprinter/Punch
-			rdy = FD_ISSET(STDOUT_FILENO, &write_fds);
-			if (ops & 1) {				//	TSF
-				if (rdy)
-					++p.regs.pc;
-			}
-
-			if (ops & 2)				//	TCF
-				FD_CLR(STDOUT_FILENO, &write_fds);
-			
-			if (ops & 4) {				// 	TPC
-				if (p.regs.ac !=0) {
-					int c = p.regs.ac & 0177;
-					write(STDOUT_FILENO, &c, 1);
-				}
-			}
-			break;
-
-		default: 						// Not implemented/supported!
-			cerr << "Unknown or unsupported IOT device: " << dev << endl;
-			assert(false);
-		}
-
-		p.runtime += 4.5 - 1.5;			// Adjust for IOT
+		iot();
         p.state = State::Fetch;
 
 	} else if (p.regs.ir == OpCode::OPR) {	// OPR?
@@ -613,7 +618,6 @@ static bool frontpanel() {
 	return false;
 }
 
-
 /********************************************************************************************//**
  * SIGINT handler 
  ************************************************************************************************/
@@ -621,6 +625,30 @@ static void signal_handler(int signal_num) {
 	assert(signal_num ==  SIGINT);
 	p.run = false;
 	cout << endl;
+}
+
+
+/********************************************************************************************//**
+ * Bring the IO Device Ready flags up to date
+ ************************************************************************************************/
+static void update_dev_ready() {
+	timeval		timeout = { 0, 0};
+
+	FD_ZERO(&p.read_fds);
+	FD_SET(STDIN_FILENO, &p.read_fds);
+
+	FD_ZERO(&p.write_fds);
+	FD_SET(STDOUT_FILENO, &p.write_fds);
+
+	/*
+	 * Select can intercept Ctrl-C (SIGINT) if it is the very first character,
+	 * so treat select() errors as HALT.
+	 */
+
+	if (select(STDOUT_FILENO+1, &p.read_fds, &p.write_fds, nullptr, &timeout) < 0)
+		signal_handler(SIGINT); 
+	else
+		; // set interrupt pending here.
 }
 
 /********************************************************************************************//**
@@ -631,22 +659,7 @@ int process() {
     for (;;) {
 		if (p.run) {
             do {					// Next instruction (mem[r.pc])
-
-#if 1								// Update IO device ready flags...
-				timeval		timeout = { 0, 0};
-
-				FD_ZERO(&read_fds);
-				FD_SET(STDIN_FILENO, &read_fds);
-				FD_ZERO(&write_fds);
-				FD_SET(STDOUT_FILENO, & write_fds);
-
-				// Select can intercept Ctrl-C (SIGINT) if it is the very first character. Treat errors as HALT.
-				if (select(STDOUT_FILENO+1, &read_fds, &write_fds, nullptr, &timeout) < 0)
-					signal_handler(SIGINT); 
-				else
-					; // set interrupt pending here.
-#endif
-
+				update_dev_ready();
                 do {				// 	Next memory state
 
                     switch(p.state) {
