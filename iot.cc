@@ -17,15 +17,11 @@
 
 using namespace std;
 
-/************************************************************************************************
- * Bit masks
- ************************************************************************************************/
-
 fd_set	read_fds;						// Read device ready flags
 fd_set	write_fds;						// Write device ready flags
 
 /********************************************************************************************//**
- * IOT Instruction.
+ * Simulate an IOT instruction.
  ************************************************************************************************/
 void iot() {
 	const	unsigned 	dev	= (p.regs.md & IOT_DEV_SEL) >> IOT_DEV_SHIFT;
@@ -95,8 +91,9 @@ void iot() {
 }
 
 /********************************************************************************************//**
+ * Disassemble instr, assuming its a valid IOT instruction.
  ************************************************************************************************/
-void disasm_iot(unsigned instr) {
+void iot_disasm(unsigned instr) {
 	cout	<< "IOT ";
 	const unsigned dev	= (instr & IOT_DEV_SEL) >> IOT_DEV_SHIFT;
 	const unsigned ops	= instr & IOT_OP;
@@ -105,9 +102,9 @@ void disasm_iot(unsigned instr) {
 }
 
 /********************************************************************************************//**
- * Bring the IO Device Ready flags up to date
+ * Bring the IO device ready flags up to date
  ************************************************************************************************/
-void update_dev_ready() {
+void iot_update_devs() {
 	timeval		timeout = { 0, 0};
 
 	FD_ZERO(&read_fds);

@@ -97,7 +97,8 @@ struct PDP8 {
  ************************************************************************************************/
 extern PDP8	p;
 
+int pdp8_init();
+int process();
 void signal_handler(int signal_num);
-
 
 #endif

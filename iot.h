@@ -8,7 +8,7 @@
 #define	IOT_H
 
 void iot();
-void disasm_iot(unsigned instr);
-void update_dev_ready();
+void iot_disasm(unsigned instr);
+void iot_update_devs();
 
 #endif
