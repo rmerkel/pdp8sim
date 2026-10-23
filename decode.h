@@ -26,4 +26,3 @@ struct Decode {
 };
 
 #endif
-

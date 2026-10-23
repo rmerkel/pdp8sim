@@ -94,7 +94,7 @@ cleanall: clean
 $(DOCDIR):	$(DOCDIR)/html/index.html
 
 $(DOCDIR)/html/index.html:	Doxyfile $(ALLSRCS) $(DOCS)
-	doxygen
+	@doxygen
 
 ################################################################################
 # Print a help message...

@@ -4,6 +4,8 @@
  * A PDP-8 Simulator
  ************************************************************************************************/
 
+#include "pdp8sim.h"
+
 #include <cassert>
 #include <csignal>
 #include <cstdint>
@@ -12,110 +14,20 @@
 #include <ios>
 #include <iostream>
 #include <string>
-
 #include <sys/select.h>
 #include <unistd.h>
 
 #include "decode.h"
+#include "iot.h"
 #include "opcode.h"
 #include "registers.h"
 #include "state.h"
 
 using namespace std;
 
-static const char* progName = "pdp8sim";
+const char* progName = "pdp8sim";
 
-/************************************************************************************************
- * Constants
- ************************************************************************************************/
-
-const unsigned UINT12_MAX		= 07777;
-const int	   INT12_MAX		= +2047;
-const int	   INT12_MIN		= -2048;
-
-/************************************************************************************************
- * Bit masks
- ************************************************************************************************/
-
-const unsigned Sign_Mask		= 04000;	///< 2's complement sign mask
-
-// OPER Group 1
-
-const unsigned GROUP1			= 00400;	///< Bit 3 is clear
-
-const unsigned GRP1_NOP			= 07000;	///< NOP
-const unsigned GRP1_CLA			= 07200;	///< Clear AC,	sequence 1
-const unsigned GRP1_CLL			= 07100;	///< Clear link, sequence 1
-const unsigned GRP1_CMA			= 07040;	///< Complement AC, sequence 2
-const unsigned GRP1_CML			= 07020;	///< Complement link, sequence 2
-const unsigned GRP1_RAR			= 07010;	///< Rotate AC and L right 1, sequence 4
-const unsigned GRP1_RTR			= 07012;	///< Rotate AC and L right 2, sequence 4
-const unsigned GRP1_RTL			= 07006;	///< Rotate AC and L left 1, sequence 4
-const unsigned GRP1_RAL			= 07004;	///< Rotate AC and L left 2, sequence 4
-const unsigned GRP1_IAC			= 07001;	///< Increment AC, sequence 3
-
-// OPER Group 2
-
-const unsigned GROUP2			= 00400;	///< Bit 3 is set, bit 11 is clear.
-
-const unsigned	GRP2_SKP_BIT	= 00010;	///< Skip bit for bits 5-7
-
-const unsigned	GRP2_SMA		= 07500;	///< Skip on minus AC, sequence 1
-const unsigned	GRP2_SZA		= 07440;	///< Skip on zero AC, sequence 1
-const unsigned	GRP2_SPA		= 07510;	///< Skip on plus AC, sequence 1
-const unsigned 	GRP2_SNA		= 07450;	///< Skip on plus AC, sequence 1
-const unsigned	GRP2_SNL		= 07420;	///< Skip on non-zero AC, sequence 1
-const unsigned	GRP2_SZL		= 07430;	///< Skip on zero link, sequence 1
-const unsigned	GRP2_SKP		= 07410;	///< Skip unconditionally, sequence 1
-const unsigned	GRP2_OSR		= 07404;	///< Inclusive OR, switch register with AC, sequence 3
-const unsigned	GRP2_HLT		= 07402;	///< Halt the processor, sequence 3
-const unsigned	GRP2_CLA		= 07600;	///< Clear AC, sequence 2
-
-// IOT
-
-const unsigned	IOT_DEV_SEL		= 00770;	///< Device ID
-const unsigned	IOT_DEV_SHIFT	= 3;
-
-const unsigned	IOT_OP			= 00007;	///< Operations
-
-/********************************************************************************************//**
- * Front Panel switches
- ************************************************************************************************/
-struct Switches {
-    bool        sstep   : 1;
-    bool        sinstr  : 1;
-
-    Switches() : sstep{false}, sinstr{false} {};
-};
-
-/************************************************************************************************
- * Processor State
- *
- * @bug	Cumulative run time needs to be accumulated here.
- ************************************************************************************************/
-struct PDP8 {
-	bool        run;
-	Switches    sw;
-	Registers	regs;
-	State       state;
-	unsigned    mem[4096];
-	unsigned	nCycles;
-	unsigned	nInstr;
-	double		runtime;						// Cumulative runtine in us.
-
-	// IO Bus
-
-	fd_set		read_fds;						// Read device ready flags
-	fd_set		write_fds;						// Write device ready flags
-
-	PDP8();
-};
-
-/********************************************************************************************//**
- ************************************************************************************************/
-PDP8::PDP8() : run {false}, state {State::Fetch}, nCycles {0}, nInstr {0}, runtime(0.0) {}
-
-static PDP8	p;
+PDP8	p;
 
 /********************************************************************************************//**
  ************************************************************************************************/
@@ -232,76 +144,6 @@ static void oper(unsigned instr) {
 
 	else
 		assert(false);						// Other groups are not implenentated
-}
-
-/********************************************************************************************//**
- * IOT Instruction.
- ************************************************************************************************/
-void iot() {
-	const	unsigned 	dev	= (p.regs.md & IOT_DEV_SEL) >> IOT_DEV_SHIFT;
-	const	unsigned	ops	= p.regs.md & IOT_OP;
-			bool		rdy	= false;	// Capture before IOP2 clears the device flag.
-
-	switch (dev) {
-	case 0:							// System
-		if (ops == 1)				// ION, unmask interrupts, with delay so that ION takes effet at the end of the following instuction
-			cerr << "ION is not implemented, ignored." << endl;
-		else if (ops == 2)			// IOF, mask interrupts
-			cerr << "IOF is not implemented, ignoredj." << endl;
-		else {
-			cerr << "Unknown IOT System operation: " << ops << endl;
-			assert(false);
-		}
-		break;
-
-	case 1:							// Highspeed Perforated Tape Reader PR8/I
-		cerr << "RSF/RRB/RFC is not implemented, ignored." << endl;
-		break;
-
-	case 2:							// Highspeed Perforated Tape Punch  PR8/I
-		cerr << "PSF/PCF/PPC/PLS not implemented, ignored." << endl;
-
-	case 3: 						// Teletype Keyboard Reader
-		rdy = FD_ISSET(STDIN_FILENO, &p.read_fds);
-		if (ops & 1) {				//	KSF
-			if (rdy)
-				++p.regs.ac;
-		}
-
-		if (ops & 2)				//	KCC
-			FD_CLR(STDIN_FILENO, &p.read_fds);
-
-		if (ops & 4) {				//	KRS
-			int c;
-			read(STDIN_FILENO, &c, 1);
-			p.regs.ac = c;
-		}
-		break;
-
-	case 4:							// Teletype Teleprinter/Punch
-		rdy = FD_ISSET(STDOUT_FILENO, &p.write_fds);
-		if (ops & 1) {				//	TSF
-			if (rdy)
-				++p.regs.pc;
-		}
-
-		if (ops & 2)				//	TCF
-			FD_CLR(STDOUT_FILENO, &p.write_fds);
-			
-		if (ops & 4) {				// 	TPC
-			if (p.regs.ac !=0) {
-				int c = p.regs.ac & 0177;
-				write(STDOUT_FILENO, &c, 1);
-			}
-		}
-		break;
-
-	default: 						// Not implemented/supported!
-		cerr << "Unknown or unsupported IOT device: " << dev << endl;
-		assert(false);
-	}
-
-	p.runtime += 4.5 - 1.5;			// Adjust for IOT
 }
 
 /********************************************************************************************//**
@@ -459,16 +301,6 @@ static void disasm_opr(unsigned instr) {
 
 /********************************************************************************************//**
  ************************************************************************************************/
-static void disasm_iot(unsigned instr) {
-	cout	<< "IOT ";
-	const unsigned dev	= (instr & IOT_DEV_SEL) >> IOT_DEV_SHIFT;
-	const unsigned ops	= instr & IOT_OP;
-	cout << setw(3)	<< dev  << ' '
-		 << setw(1) << ops;
-}
-
-/********************************************************************************************//**
- ************************************************************************************************/
 static void disasm_mri(const Decode& d) {
 	cout 	<< d.op	<< ' ';
 	if (d.i)
@@ -603,7 +435,7 @@ static bool frontpanel() {
 	else if (cmd.find( "s")		== 0) {	// start
 		p.regs.l				= false;
 		p.regs.ac = p.regs.md	= 0;
-		p.regs.ma 				= p.regs.pc;
+		p.regs.ma 				= p.regs.pc;			// Shouldn't this be from the switch register?
 		p.state					= State::Fetch;
 		p.run 					= true;
 	} else if (cmd == "q" || cmd == "quit")
@@ -621,34 +453,10 @@ static bool frontpanel() {
 /********************************************************************************************//**
  * SIGINT handler 
  ************************************************************************************************/
-static void signal_handler(int signal_num) {
+void signal_handler(int signal_num) {
 	assert(signal_num ==  SIGINT);
 	p.run = false;
 	cout << endl;
-}
-
-
-/********************************************************************************************//**
- * Bring the IO Device Ready flags up to date
- ************************************************************************************************/
-static void update_dev_ready() {
-	timeval		timeout = { 0, 0};
-
-	FD_ZERO(&p.read_fds);
-	FD_SET(STDIN_FILENO, &p.read_fds);
-
-	FD_ZERO(&p.write_fds);
-	FD_SET(STDOUT_FILENO, &p.write_fds);
-
-	/*
-	 * Select can intercept Ctrl-C (SIGINT) if it is the very first character,
-	 * so treat select() errors as HALT.
-	 */
-
-	if (select(STDOUT_FILENO+1, &p.read_fds, &p.write_fds, nullptr, &timeout) < 0)
-		signal_handler(SIGINT); 
-	else
-		; // set interrupt pending here.
 }
 
 /********************************************************************************************//**
