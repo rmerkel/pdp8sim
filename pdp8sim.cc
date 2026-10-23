@@ -110,20 +110,10 @@ PDP8::PDP8() : run {false}, state {State::Fetch}, nCycles {0}, nInstr {0} {}
 static PDP8	p;
 
 #if 1
-/************************************************************************************************
- * IOT Support
+/********************************************************************************************//**
  ************************************************************************************************/
-struct IOT {
-	bool read_ready;
-	bool write_ready;
-
-	IOT();
-};
-
-IOT::IOT() : read_ready(false), write_ready(false) {}
-
-static IOT tty;
-
+fd_set	read_fds;
+fd_set	write_fds;
 #endif
 
 /********************************************************************************************//**
@@ -255,11 +245,11 @@ void fetch() {
 	p.regs.ma 		= d.eaddr;
 
     if (p.regs.ir == OpCode::IOT) {			// IOT?
+		const	unsigned dev	= (p.regs.md & IOT_DEV_SEL) >> IOT_DEV_SHIFT;
+		const	unsigned ops	= p.regs.md & IOT_OP;
+				bool	rdy		= false;	// Captured before IOP2 which may clear the device flag.
 
-		const unsigned dev	= (p.regs.md & IOT_DEV_SEL) >> IOT_DEV_SHIFT;
-		const unsigned ops	= p.regs.md & IOT_OP;
-
-#if 1
+#if 0
 		cerr << setw(3)	<< dev  << ' '
 		 	 << setw(1) << ops	<< endl;
 #endif
@@ -277,14 +267,45 @@ void fetch() {
 			break;
 
 		case 1:							// Highspeed Perforated Tape Reader PR8/I
-				cerr << "RSF/RRB/RFC is not implemented, ignored." << endl;
+			cerr << "RSF/RRB/RFC is not implemented, ignored." << endl;
 			break;
-		case 2:							// Highspeed Perforated Tape Punch  PR8/I
-				cerr << "PSF/PCF/PPC/PLS is not implemented, ignored." << endl;
 
-		case 3: 						// Teletype Keyboard/Reader
+		case 2:							// Highspeed Perforated Tape Punch  PR8/I
+			cerr << "PSF/PCF/PPC/PLS not implemented, ignored." << endl;
+
+		case 3: 						// Teletype Keyboard Reader
+			rdy = FD_ISSET(STDIN_FILENO, &read_fds);
+			if (ops & 1) {				//	KSF
+				if (rdy)
+					++p.regs.ac;
+			}
+
+			if (ops & 2)				//	KCC
+				FD_CLR(STDIN_FILENO, &read_fds);
+
+			if (ops & 4) {				//	KRS
+				int c;
+				read(STDIN_FILENO, &c, 1);
+				p.regs.ac = c;
+			}
 			break;
+
 		case 4:							// Teletype Teleprinter/Punch
+			rdy = FD_ISSET(STDOUT_FILENO, &write_fds);
+			if (ops & 1) {				//	TSF
+				if (rdy)
+					++p.regs.pc;
+			}
+
+			if (ops & 2)				//	TCF
+				FD_CLR(STDOUT_FILENO, &write_fds);
+			
+			if (ops & 4) {				// 	TPC
+				if (p.regs.ac !=0) {
+					int c = p.regs.ac & 0177;
+					write(STDOUT_FILENO, &c, 1);
+				}
+			}
 			break;
 
 		default: 						// Not implemented/supported!
@@ -613,27 +634,20 @@ int process() {
 		if (p.run) {
             do {					// Next instruction (mem[r.pc])
 #if 1								// Maybe check at end of instruction?
-					fd_set		read_fds;
-					fd_set		write_fds;
-					timeval		timeout;
+				timeval		timeout = { 0, 0};
 
-					FD_ZERO(&read_fds);
-					FD_SET(STDIN_FILENO, &read_fds);
-					FD_ZERO(&write_fds);
-					FD_SET(STDOUT_FILENO, & write_fds);
-					timeout.tv_sec = 0;
-					timeout.tv_usec = 0;
+				FD_ZERO(&read_fds);
+				FD_SET(STDIN_FILENO, &read_fds);
+				FD_ZERO(&write_fds);
+				FD_SET(STDOUT_FILENO, & write_fds);
 
-					// Select can intercept Ctrl-C (SIGINT) if it is the first character. Treat errors as HALT.
-					if (select(STDOUT_FILENO+1, &read_fds, &write_fds, nullptr, &timeout) < 0)
-						signal_handler(SIGINT); 
-					else {
-						// set interrupt pending here.
-						tty.read_ready  = FD_ISSET(STDIN_FILENO, &read_fds);
-						tty.write_ready = FD_ISSET(STDOUT_FILENO, &write_fds);
-					}
+				// Select can intercept Ctrl-C (SIGINT) if it is the very first character. Treat errors as HALT.
+				if (select(STDOUT_FILENO+1, &read_fds, &write_fds, nullptr, &timeout) < 0)
+					signal_handler(SIGINT); 
+				else
+					; // set interrupt pending here.
 
-					cout << tty.read_ready << ", " << tty.write_ready << '\n';
+//				cout << FD_ISSET(STDIN_FILENO, &read_fds) << ", " << FD_ISSET(STDOUT_FILENO, &write_fds) << '\n';
 #endif
 
                 do {				// 	Next memory state

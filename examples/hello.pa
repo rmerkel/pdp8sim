@@ -1,0 +1,39 @@
+/ Introduction to Programming, 2nd Ed 1970
+/ Figure 5-9  Routine to Print One Word
+
+*200
+	JMS	HELLO
+	HLT
+
+HELLO,  0			/ Print hello subroutine
+	CLA CLL
+	TLS			/ Set printer flag
+	TAD	CHARAC		/ Setup index register
+	DCA	IR1		/ For getting characters
+	TAD	M6		/ Setup counter for...
+	DCA	COUNT		/ Typing characters
+
+NEXT,	TAD I	IR1		/ Get a character
+	JMS	TYPE		/ Type it
+	ISZ	COUNT		/ Done yet?
+	JMP	NEXT		/ No
+	JMP I	HELLO		/ Yes; return
+
+TYPE,	0			/ Type subroutine
+	TSF
+	JMP	.-1
+	TLS
+	CLA
+	JMP I	TYPE
+
+CHARAC,	.			/ Initial value of IR1
+	310			/ H
+	305			/ E
+	314			/ L
+	314			/ L
+	317			/ O
+	241			/ !
+M6,	-6
+COUNT,	0
+IR1=10
+$
