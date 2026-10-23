@@ -90,6 +90,8 @@ struct Switches {
 
 /************************************************************************************************
  * Processor State
+ *
+ * @bug	Cumulative run time needs to be accumulated here.
  ************************************************************************************************/
 struct PDP8 {
 	bool        run;
@@ -99,13 +101,14 @@ struct PDP8 {
 	unsigned    mem[4096];
 	unsigned	nCycles;
 	unsigned	nInstr;
+	double		runtime;
 
 	PDP8();
 };
 
 /********************************************************************************************//**
  ************************************************************************************************/
-PDP8::PDP8() : run {false}, state {State::Fetch}, nCycles {0}, nInstr {0} {}
+PDP8::PDP8() : run {false}, state {State::Fetch}, nCycles {0}, nInstr {0}, runtime(0.0) {}
 
 static PDP8	p;
 
@@ -245,14 +248,9 @@ void fetch() {
 	p.regs.ma 		= d.eaddr;
 
     if (p.regs.ir == OpCode::IOT) {			// IOT?
-		const	unsigned dev	= (p.regs.md & IOT_DEV_SEL) >> IOT_DEV_SHIFT;
-		const	unsigned ops	= p.regs.md & IOT_OP;
-				bool	rdy		= false;	// Captured before IOP2 which may clear the device flag.
-
-#if 0
-		cerr << setw(3)	<< dev  << ' '
-		 	 << setw(1) << ops	<< endl;
-#endif
+		const	unsigned 	dev	= (p.regs.md & IOT_DEV_SEL) >> IOT_DEV_SHIFT;
+		const	unsigned	ops	= p.regs.md & IOT_OP;
+				bool		rdy	= false;	// Capture before IOP2 clears the device flag.
 
 		switch (dev) {
 		case 0:							// System
@@ -313,6 +311,7 @@ void fetch() {
 			assert(false);
 		}
 
+		p.runtime += 4.5 - 1.5;			// Adjust for IOT
         p.state = State::Fetch;
 
 	} else if (p.regs.ir == OpCode::OPR) {	// OPR?
@@ -494,8 +493,6 @@ static void disasm(unsigned addr, unsigned instr) {
  * Dump the processor state
  ************************************************************************************************/
 static void dumpState() {
-	const double	us = p.nCycles * 1.5;	// Not accurate, IOT takes 4.5us!
-
 	cout << oct << setfill('0');
 
     cout
@@ -512,9 +509,10 @@ static void dumpState() {
 			<< "IR "				<< p.regs.ir		<< ' '
 			<< setfill(' ')
 						<< setw(2)  << p.state			<< ' '
-						<< setw(4)	<< p.nInstr			<< " instrs, "
-						<< setw(4)	<< p.nCycles		<< " cycles, "
-			<< '(' 					<< us 				<< " us)\n";
+						<< setw(4)	<< p.nInstr			<< " Instructions, "
+						<< setw(4)	<< p.nCycles		<< " Cycles, "
+			<< '(' 					<< p.runtime		<< " us)"
+			<< '\n';
 
 	if (p.state == State::Fetch) {
 		disasm(p.regs.pc, p.mem[p.regs.pc]);
@@ -633,7 +631,8 @@ int process() {
     for (;;) {
 		if (p.run) {
             do {					// Next instruction (mem[r.pc])
-#if 1								// Maybe check at end of instruction?
+
+#if 1								// Update IO device ready flags...
 				timeval		timeout = { 0, 0};
 
 				FD_ZERO(&read_fds);
@@ -646,8 +645,6 @@ int process() {
 					signal_handler(SIGINT); 
 				else
 					; // set interrupt pending here.
-
-//				cout << FD_ISSET(STDIN_FILENO, &read_fds) << ", " << FD_ISSET(STDOUT_FILENO, &write_fds) << '\n';
 #endif
 
                 do {				// 	Next memory state
@@ -661,6 +658,9 @@ int process() {
                     }
 
 					++p.nCycles;
+					p.runtime += 1.5;
+
+					// Calc cumulative runtime here...
 
                 } while (p.run && !p.sw.sstep && p.state != State::Fetch);
             } while (p.run && !p.sw.sinstr && !p.sw.sstep);
