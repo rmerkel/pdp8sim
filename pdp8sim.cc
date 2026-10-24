@@ -342,9 +342,9 @@ static void dumpState() {
            	<< "MD "	<< setw(4)	<< p.regs.md		<< ' '
            	<< "SR "	<< setw(4)	<< p.regs.sr		<< '\n'
 
-			<< "IR "				<< p.regs.ir		<< ' '
+			<< "IR "				<< OpCode2Str(&p.regs.ir)		<< ' '
 			<< setfill(' ')
-						<< setw(2)  << State2Str(&p.state) << ' '
+						<< setw(2)  << State2Str(&p.state)	<< ' '
 						<< setw(4)	<< p.nInstr			<< " Instructions, "
 						<< setw(4)	<< p.nCycles		<< " Cycles, "
 			<< '(' 					<< p.runtime		<< " us)"
