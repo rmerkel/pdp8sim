@@ -150,28 +150,29 @@ static void oper(unsigned instr) {
 static void fetch() {
 	++p.nInstr;
 
-	p.regs.md 		= p.mem[p.regs.pc++];
+	p.regs.md 		= p.mem[p.regs.pc];
 	const Decode d	= Decode(p.regs.md, p.regs.pc);
 	p.regs.ir 		= d.op;
 	p.regs.ma 		= d.eaddr;
+	p.regs.pc++;
 
     if (p.regs.ir == OpCode::IOT) {			// IOT?
 		iot();
-        p.state = State::Fetch;
+        p.state = Fetch;
 
 	} else if (p.regs.ir == OpCode::OPR) {	// OPR?
 		oper(p.regs.md);
-		p.state = State::Fetch;
+		p.state = Fetch;
 
     } else if (d.i)                  		// Indirect?
-       p.state = State::Defer;				//	r.ma is the address of the operation
+       p.state = Defer;				//	r.ma is the address of the operation
 	   
     else if (p.regs.ir == OpCode::JMP) {	// JMP direct?
         p.regs.pc = p.regs.ma;
-        p.state = State::Fetch;
+        p.state = Fetch;
 
     } else
-       p.state = State::Execute;
+       p.state = Execute;
 }
 
 /********************************************************************************************//**
@@ -185,10 +186,10 @@ static void defer() {
 
 	if (p.regs.ir == OpCode::JMP) {			// JMP indirect?
 		p.regs.pc = p.regs.md;
-		p.state = State::Fetch;
+		p.state = Fetch;
 
 	} else
-		p.state = State::Execute;
+		p.state = Execute;
 
 	p.regs.ma = p.regs.md;
 }
@@ -241,7 +242,7 @@ static void execute() {
 		break;
     }
 
-    p.state = State::Fetch;
+    p.state = Fetch;
 }
 
 /********************************************************************************************//**
@@ -249,7 +250,7 @@ static void execute() {
  ************************************************************************************************/
 void brk() {
 	assert(false);							// Not implemented
-    p.state = State::Fetch;
+    p.state = Fetch;
 }
 
 /********************************************************************************************//**
@@ -343,13 +344,13 @@ static void dumpState() {
 
 			<< "IR "				<< p.regs.ir		<< ' '
 			<< setfill(' ')
-						<< setw(2)  << p.state			<< ' '
+						<< setw(2)  << State2Str(&p.state) << ' '
 						<< setw(4)	<< p.nInstr			<< " Instructions, "
 						<< setw(4)	<< p.nCycles		<< " Cycles, "
 			<< '(' 					<< p.runtime		<< " us)"
 			<< '\n';
 
-	if (p.state == State::Fetch) {
+	if (p.state == Fetch) {
 		disasm(p.regs.pc, p.mem[p.regs.pc]);
 		cout	<< '\n';
 	}
@@ -434,7 +435,7 @@ static bool frontpanel() {
 		p.regs.l				= false;
 		p.regs.ac = p.regs.md	= 0;
 		p.regs.ma 				= p.regs.pc;			// Shouldn't this be from the switch register?
-		p.state					= State::Fetch;
+		p.state					= Fetch;
 		p.run 					= true;
 	} else if (cmd == "q" || cmd == "quit")
 		return true;					// quit
@@ -470,10 +471,10 @@ int process() {
                 do {				// 	Next memory state
 
                     switch(p.state) {
-                    case State::Fetch:      fetch();    break;
-                    case State::Defer:      defer();    break;
-                    case State::Execute:    execute();  break;
-                    case State::Break:      brk();      break;
+                    case Fetch:      fetch();    break;
+                    case Defer:      defer();    break;
+                    case Execute:    execute();  break;
+                    case Break:      brk();      break;
                     default: cerr << "unknown state!\n";
                     }
 
@@ -482,7 +483,7 @@ int process() {
 
 					// Calc cumulative runtime here...
 
-                } while (p.run && !p.sw.sstep && p.state != State::Fetch);
+                } while (p.run && !p.sw.sstep && p.state != Fetch);
             } while (p.run && !p.sw.sinstr && !p.sw.sstep);
 
             p.run = p.run && !p.sw.sstep && !p.sw.sinstr;

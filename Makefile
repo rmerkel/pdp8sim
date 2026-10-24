@@ -9,6 +9,7 @@
 #
 # Switch between GCC and CLang with
 #   sudo update-alternatives --config c++
+#   sudo update-alternatives --config cc
 ################################################################################
 
 CXX = c++
@@ -24,6 +25,21 @@ else
 	CXXFLAGS += -O3 -DNDEBUG
 endif
 
+CC = cc
+
+#Support C11, enable all and extra warnings, generate dependency files
+CCFLAGS += -std=c11 -Wall -Wextra -MMD -MP
+
+# Build for debugging (default), or release/optimized
+DEBUG	?= 1
+ifeq	($(DEBUG),1)
+	CCFLAGS += -O0 -g3 -DDEBUG
+else
+	CCFLAGS += -O3 -DNDEBUG
+endif
+
+CC = cc
+
 ################################################################################
 # Project directories
 ################################################################################
@@ -35,9 +51,12 @@ OBJDIR	= objs
 # Project files
 ################################################################################
 
-SRCS	= $(wildcard *.cc)
+SRCS	= $(wildcard *.c) $(wildcard *.cc)
 ALLSRCS	= $(SRCS) $(wildcard *.h)
-OBJS	= $(addprefix $(OBJDIR)/,$(SRCS:.cc=.o))
+
+#OBJS	= $(addprefix $(OBJDIR)/,$(SRCS:.cc=.o) $(SRCS:.c=.o))
+OBJS	= $(patsubst .cc,.o,$(patsubst .c,.o,$(SRCS)))
+
 DEPS	= $(addprefix $(OBJDIR)/,$(SRCS:.cc=.d))
 DOCS	= $(wildcard *.md)
 EXE		= pdp8sim
@@ -45,6 +64,9 @@ EXE		= pdp8sim
 ################################################################################
 # Rules
 ################################################################################
+
+$(OBJDIR)/%.o: %.c
+	$(CC) $(CCFLAGS) -c -o $@ $<
 
 $(OBJDIR)/%.o: %.cc
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -c -o $@ $<
@@ -56,9 +78,11 @@ $(OBJDIR)/%.o: %.cc
 ################################################################################
 
 all:	$(EXE) $(DOCDIR)
+	echo $(OBJS)
+
 
 ################################################################################
-# p
+# pdp8sim
 ################################################################################
 
 $(EXE): $(OBJDIR) $(OBJS)

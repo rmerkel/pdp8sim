@@ -11,21 +11,6 @@
 #include <fstream>
 #include <iostream>
 
-#if 0
-#include <csignal>
-#include <iomanip>
-#include <ios>
-#include <string>
-#include <sys/select.h>
-#include <unistd.h>
-
-#include "decode.h"
-#include "iot.h"
-#include "opcode.h"
-#include "registers.h"
-#include "state.h"
-#endif
-
 using namespace std;
 
 const char* progName = "pdp8sim";
