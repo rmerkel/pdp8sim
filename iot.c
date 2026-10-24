@@ -1,5 +1,5 @@
 /********************************************************************************************//**
- * @file iot.cc
+ * @file iot.c
  * 
  * PDP-8 IOT instructions
  ************************************************************************************************/
@@ -7,15 +7,11 @@
 #include "iot.h"
 #include "pdp8sim.h"
 
-#include <cassert>
-#include <csignal>
-#include <fstream>
-#include <iomanip>
-#include <iostream>
+#include <assert.h>
+#include <signal.h>
+#include <stdio.h>
 #include <sys/select.h>
 #include <unistd.h>
-
-using namespace std;
 
 fd_set	read_fds;						// Read device ready flags
 fd_set	write_fds;						// Write device ready flags
@@ -31,21 +27,21 @@ void iot() {
 	switch (dev) {
 	case 0:							// System
 		if (ops == 1)				// ION, unmask interrupts, with delay so that ION takes effet at the end of the following instuction
-			cerr << "ION is not implemented, ignored." << endl;
+			fprintf(stderr, "ION is not implemented, ignored.\n");
 		else if (ops == 2)			// IOF, mask interrupts
-			cerr << "IOF is not implemented, ignoredj." << endl;
+			fprintf(stderr, "IOF is not implemented, ignored.\n");
 		else {
-			cerr << "Unknown IOT System operation: " << ops << endl;
+			fprintf(stderr, "Unknown IOT System operation: %03o!\n", ops);
 			assert(false);
 		}
 		break;
 
 	case 1:							// Highspeed Perforated Tape Reader PR8/I
-		cerr << "RSF/RRB/RFC is not implemented, ignored." << endl;
+		fprintf(stderr, "RSF/RRB/RFC s not implemented, ignored.\n");
 		break;
 
 	case 2:							// Highspeed Perforated Tape Punch  PR8/I
-		cerr << "PSF/PCF/PPC/PLS not implemented, ignored." << endl;
+		fprintf(stderr,  "PSF/PCF/PPC/PLS is not implemented, ignored.\n");
 
 	case 3: 						// Teletype Keyboard Reader
 		rdy = FD_ISSET(STDIN_FILENO, &read_fds);
@@ -83,7 +79,7 @@ void iot() {
 		break;
 
 	default: 						// Not implemented/supported!
-		cerr << "Unknown or unsupported IOT device: " << dev << endl;
+		fprintf(stderr, "Unknown or unsupported IOT device: %0o.\n", dev);
 		assert(false);
 	}
 
@@ -94,11 +90,9 @@ void iot() {
  * Disassemble instr, assuming its a valid IOT instruction.
  ************************************************************************************************/
 void iot_disasm(unsigned instr) {
-	cout	<< "IOT ";
 	const unsigned dev	= (instr & IOT_DEV_SEL) >> IOT_DEV_SHIFT;
 	const unsigned ops	= instr & IOT_OP;
-	cout << setw(3)	<< dev  << ' '
-		 << setw(1) << ops;
+	printf("IOT %0o %0o\n", dev, ops);
 }
 
 /********************************************************************************************//**
