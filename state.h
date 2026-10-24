@@ -4,27 +4,30 @@
  * A PDP-8 Simulator: enum State - Major PDP-8 states
  ************************************************************************************************/
 
-#include <ostream>
-
 #ifndef	STATE_H
 #define	STATE_H
+
+#ifdef	_cplusplus
+extern "C" {
+#endif
 
 /********************************************************************************************//**
  * Major Memory states
  ************************************************************************************************/
-enum class State {
+typedef enum State {
 	Fetch,
 	Defer,
 	Execute,
 	Break,
 	WordCount,
 	CurrAddr
-};
+} State;
 
-/********************************************************************************************//**
- * ostream put operator for States.
- ************************************************************************************************/
-std::ostream& operator<< (std::ostream& os, const State& state);
+const char* State2Str(const State* state);
+
+#ifdef	_cplusplus
+}
+#endif
 
 #endif
 

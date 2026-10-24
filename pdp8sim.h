@@ -7,6 +7,10 @@
 #ifndef	PDP8SIM_H
 #define	PDP8SIM_H
 
+#ifdef	_cplusplus
+extern "C" {
+#endif
+
 #include "registers.h"
 #include "state.h"
 
@@ -100,5 +104,9 @@ extern PDP8	p;
 int pdp8_init();
 int process();
 void signal_handler(int signal_num);
+
+#ifdef	_cplusplus
+}
+#endif
 
 #endif
