@@ -7,22 +7,30 @@
 #ifndef	DECODE_H
 #define	DECODE_H
 
+#ifdef	_cplusplus
+extern "C" {
+#endif
+
 #include <cstdint>
 
 #include "opcode.h"
 
 /********************************************************************************************//**
- * Decode instructon
+ * Decoded instructon
  ************************************************************************************************/
-struct Decode {
+typedef struct Decode {
 	OpCode		op;							///< Opcode
 	bool		i;							///< Indirect?
 	bool		p;							///< Current page?
 	uint16_t	eaddr;						///< Effective addr
-	uint16_t	bits;						///< bits 3-11 of the instruction (for OPR, IOT, tbd)
+	uint16_t	bits;						///< bits 3-11 of the instruction (for OPR, IOT)
 
-	Decode();
-	Decode(unsigned instr, unsigned pc);
-};
+} Decode;
+
+void decode(unsigned instr, unsigned pc, Decode* decoded);
+
+#ifdef	_cplusplus
+}
+#endif
 
 #endif

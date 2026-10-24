@@ -11,8 +11,6 @@
 extern "C" {
 #endif
 
-#include <ostream>
-
 /********************************************************************************************//**
  * PDP-8 Operation codes for the basic instructions
  ************************************************************************************************/
@@ -27,7 +25,7 @@ typedef enum OpCode {
     OPR = 7
 } OpCode;
 
-const char* OpCode2Str(const OpCode* op);
+const char* OpCode2Str(const OpCode op);
 
 #ifdef	_cplusplus
 }

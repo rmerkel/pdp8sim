@@ -150,11 +150,14 @@ static void oper(unsigned instr) {
 static void fetch() {
 	++p.nInstr;
 
+	Decode d;
 	p.regs.md 		= p.mem[p.regs.pc];
-	const Decode d	= Decode(p.regs.md, p.regs.pc);
+
+	decode(p.regs.md, p.regs.pc, &d);
+
+	p.regs.pc++;
 	p.regs.ir 		= d.op;
 	p.regs.ma 		= d.eaddr;
-	p.regs.pc++;
 
     if (p.regs.ir == OpCode::IOT) {			// IOT?
 		iot();
@@ -301,7 +304,7 @@ static void opr_disasm(unsigned instr) {
 /********************************************************************************************//**
  ************************************************************************************************/
 static void mri_disasm(const Decode& d) {
-	cout 	<< d.op	<< ' ';
+	cout	<< OpCode2Str(d.op) << ' ';
 	if (d.i)
 		cout << "I ";
 	cout	<< setw(4)	<< d.eaddr
@@ -313,7 +316,8 @@ static void mri_disasm(const Decode& d) {
  * disasmble the the next instruction
  ************************************************************************************************/
 static void disasm(unsigned addr, unsigned instr) {
-	const Decode d = Decode(instr, addr);
+	Decode d;
+	decode(instr, addr, &d);
 
 	cout	<< oct << setfill('0');
 	cout	<< setw(4) 	<< addr 		<< ' '
@@ -342,7 +346,7 @@ static void dumpState() {
            	<< "MD "	<< setw(4)	<< p.regs.md		<< ' '
            	<< "SR "	<< setw(4)	<< p.regs.sr		<< '\n'
 
-			<< "IR "				<< OpCode2Str(&p.regs.ir)		<< ' '
+			<< "IR "				<< OpCode2Str(p.regs.ir)		<< ' '
 			<< setfill(' ')
 						<< setw(2)  << State2Str(&p.state)	<< ' '
 						<< setw(4)	<< p.nInstr			<< " Instructions, "

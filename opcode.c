@@ -9,8 +9,8 @@
 /********************************************************************************************//**
  * Return op as a string.
  ************************************************************************************************/
-const char* OpCode2Str(const OpCode* op) {
-    switch (*op) {
+const char* OpCode2Str(const OpCode op) {
+    switch (op) {
     case AND:   return "AND";	break;
     case TAD:   return "TAD";	break;
     case ISZ:   return "ISZ";	break;
