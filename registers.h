@@ -4,10 +4,14 @@
  * PDP-8 Registers
  ************************************************************************************************/
 
-#include "opcode.h"
-
 #ifndef	REGISTERS_H
 #define REGISTERS_H
+
+#include "opcode.h"
+
+#ifdef	_cplusplus
+extern "C" {
+#endif
 
 /********************************************************************************************//**
  * PDP8 Registers
@@ -20,8 +24,10 @@ struct Registers {
 	unsigned	md	: 12;				///< Memory data register
 	unsigned	sr	: 12;				///< Switch register
 	OpCode		ir;
-
-    Registers();
 };
+
+#ifdef	_cplusplus
+}
+#endif
 
 #endif
