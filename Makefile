@@ -12,19 +12,6 @@
 #   sudo update-alternatives --config cc
 ################################################################################
 
-CXX = c++
-
-# Support C++11, enable all, extra warnings, and generate dependency files
-CXXFLAGS +=-std=c++11 -Wall -Wextra -MMD -MP
-
-# Build for debugging (default), or release/optimized
-DEBUG	?= 1
-ifeq	($(DEBUG),1)
-	CXXFLAGS += -O0 -g3 -DDEBUG
-else
-	CXXFLAGS += -O3 -DNDEBUG
-endif
-
 CC = cc
 
 #Support C11, enable all and extra warnings, generate dependency files
@@ -37,8 +24,6 @@ ifeq	($(DEBUG),1)
 else
 	CCFLAGS += -O3 -DNDEBUG
 endif
-
-CC = cc
 
 ################################################################################
 # Project directories
@@ -53,11 +38,8 @@ OBJDIR	= objs
 
 SRCS	= $(wildcard *.c) $(wildcard *.cc)
 ALLSRCS	= $(SRCS) $(wildcard *.h)
-
-#OBJS	= $(addprefix $(OBJDIR)/,$(SRCS:.cc=.o) $(SRCS:.c=.o))
-OBJS	= $(patsubst .cc,.o,$(patsubst .c,.o,$(SRCS)))
-
-DEPS	= $(addprefix $(OBJDIR)/,$(SRCS:.cc=.d))
+OBJS	= $(addprefix $(OBJDIR)/,$(SRCS:.c=.o))
+DEPS	= $(addprefix $(OBJDIR)/,$(SRCS:.c=.d))
 DOCS	= $(wildcard *.md)
 EXE		= pdp8sim
 
@@ -67,9 +49,6 @@ EXE		= pdp8sim
 
 $(OBJDIR)/%.o: %.c
 	$(CC) $(CCFLAGS) -c -o $@ $<
-
-$(OBJDIR)/%.o: %.cc
-	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -c -o $@ $<
 
 .PHONY:	all clean cleanall $(DOCDIR) help pr test
 

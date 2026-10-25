@@ -156,18 +156,18 @@ static void fetch() {
 	p.regs.ir 		= d.op;
 	p.regs.ma 		= d.eaddr;
 
-    if (p.regs.ir == OpCode::IOT) {			// IOT?
+    if (p.regs.ir == IOT) {			// IOT?
 		iot();
         p.state = Fetch;
 
-	} else if (p.regs.ir == OpCode::OPR) {	// OPR?
+	} else if (p.regs.ir == OPR) {	// OPR?
 		oper(p.regs.md);
 		p.state = Fetch;
 
     } else if (d.i)                  		// Indirect?
        p.state = Defer;				//	r.ma is the address of the operation
 	   
-    else if (p.regs.ir == OpCode::JMP) {	// JMP direct?
+    else if (p.regs.ir == JMP) {	// JMP direct?
         p.regs.pc = p.regs.ma;
         p.state = Fetch;
 
@@ -184,7 +184,7 @@ static void defer() {
 	if (p.regs.ma >= 010 && p.regs.ma <= 017)
 		p.mem[p.regs.ma] = ++p.regs.md;		// Auto increment
 
-	if (p.regs.ir == OpCode::JMP) {			// JMP indirect?
+	if (p.regs.ir == JMP) {			// JMP indirect?
 		p.regs.pc = p.regs.md;
 		p.state = Fetch;
 
@@ -201,43 +201,43 @@ static void execute() {
     p.regs.md = p.mem[p.regs.ma];
 
     switch(p.regs.ir) {
-    case OpCode::AND:
+    case AND:
     	p.regs.ac &= p.regs.md;
         break;
 
-	case OpCode::TAD: {
+	case TAD: {
 		uint16_t sum = p.regs.ac + p.regs.md;
 		if (sum & ~UINT12_MAX)
 			p.regs.l = ~p.regs.l;
 		p.regs.ac = sum & UINT12_MAX;
 	} break;
 			
-	case OpCode::ISZ:
+	case ISZ:
 		p.mem[p.regs.ma] = ++p.regs.md;
 		if (p.regs.md == 0) 
 			++p.regs.pc;
 		break;
 
-    case OpCode::DCA:
+    case DCA:
 		p.regs.md = p.regs.ac;
 		p.regs.ac = 0;
 		p.mem[p.regs.ma] = p.regs.md;
 		break;
 
-    case OpCode::JMS:
+    case JMS:
 		p.mem[p.regs.ma] = p.regs.pc;
 		p.regs.pc = ++p.regs.ma;
 		break;
 
-    case OpCode::JMP:						// Not expected in this state!
+    case JMP:						// Not expected in this state!
 		assert(false);
 		break;
 
-    case OpCode::IOT:
+    case IOT:
 		assert(false);						// Not expected in this state!
 		break;
 
-    case OpCode::OPR:						// Not expected in this state!
+    case OPR:						// Not expected in this state!
 		assert(false);
 		break;
     }
@@ -300,11 +300,11 @@ static void opr_disasm(unsigned instr) {
 
 /********************************************************************************************//**
  ************************************************************************************************/
-static void mri_disasm(const Decode& d) {
-	printf("%s ", OpCode2Str(d.op));
-	if (d.i)
+static void mri_disasm(const Decode* d) {
+	printf("%s ", OpCode2Str(d->op));
+	if (d->i)
 		fputs("I ", stdout);
-	printf("%04o (%04o)", d.eaddr, p.mem[d.eaddr]);
+	printf("%04o (%04o)", d->eaddr, p.mem[d->eaddr] & UINT8_MAX);
 }
 
 
@@ -315,11 +315,11 @@ static void disasm(unsigned addr, unsigned instr) {
 	Decode d;
 	decode(instr, addr, &d);
 
-	printf("%04o (%04o) ", addr, p.mem[addr]);
+	printf("%04o (%04o) ", addr, p.mem[addr] & UINT8_MAX);
 	switch (d.op) {
-		case OpCode::OPR:	opr_disasm(instr);		break;
-		case OpCode::IOT: 	iot_disasm(instr);		break;
-		default:			mri_disasm(d);
+		case OPR:	opr_disasm(instr);		break;
+		case IOT: 	iot_disasm(instr);		break;
+		default:	mri_disasm(&d);
 	}
 }
 
@@ -328,12 +328,12 @@ static void disasm(unsigned addr, unsigned instr) {
  ************************************************************************************************/
 static void dumpState() {
 	printf("PC %04o ",	p.regs.pc);
-	printf("(%04o) ",	p.mem[p.regs.pc]);
+	printf("(%04o) ",	p.mem[p.regs.pc] & UINT8_MAX);
 	printf("L %d ",		p.regs.l);
 	printf("AC %04o ", 	p.regs.ac);
 
 	printf("MA %04o ", 	p.regs.ma);
-	printf("(%04o)    ",p.mem[p.regs.ma]);
+	printf("(%04o)    ",p.mem[p.regs.ma] & UINT8_MAX);
     printf("MD %04o ", 	p.regs.md);
     printf("SR %04o\n", p.regs.sr);
 
@@ -369,7 +369,7 @@ static bool digit(const char* s) {
 } 
 
 /********************************************************************************************//**
- * @cite K&R 2nd Ed, 4.1
+ * From K&R 2nd Ed, 4.1
  ************************************************************************************************/
 static int getline(char* s, int lim) {
 	int c;
@@ -399,8 +399,6 @@ static bool frontpanel() {
     fputs("> ", stdout);
 	if (getline(cmd, sizeof(cmd)) == 0)
 		return true;					// Ctrl-D - exit
-
-	printf("getline returned \'%s\'\n", cmd);
 
 	if (cmd[0] == '\n')
 		strcpy(cmd, lcmd);				// Repeat last...
@@ -504,7 +502,7 @@ int process() {
  * @bug	Maybe allocate and return a PDP8 object, to be passed to [PDP8sim_]process()?
  ************************************************************************************************/
 int pdp8_init() {
-	memset(&p, 0, sizeof (p));
+	memset(&p, 0, sizeof(p));
 
 	// Ctrl-C (SIGINT) as the front pannel HALT switch
 	if (signal(SIGINT, signal_handler) == SIG_ERR) {

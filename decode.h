@@ -11,9 +11,10 @@
 extern "C" {
 #endif
 
-#include <cstdint>
-
 #include "opcode.h"
+
+#include <stdint.h>
+#include <stdbool.h>
 
 /********************************************************************************************//**
  * Decoded instructon

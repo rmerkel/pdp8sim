@@ -99,7 +99,7 @@ void iot_disasm(unsigned instr) {
  * Bring the IO device ready flags up to date
  ************************************************************************************************/
 void iot_update_devs() {
-	timeval		timeout = { 0, 0};
+	struct timeval timeout = { 0, 0};
 
 	FD_ZERO(&read_fds);
 	FD_SET(STDIN_FILENO, &read_fds);
@@ -112,7 +112,7 @@ void iot_update_devs() {
 	 * so treat select() errors as HALT.
 	 */
 
-	if (select(STDOUT_FILENO+1, &read_fds, &write_fds, nullptr, &timeout) < 0)
+	if (select(STDOUT_FILENO+1, &read_fds, &write_fds, NULL, &timeout) < 0)
 		signal_handler(SIGINT); 
 	else
 		; // set interrupt pending here.

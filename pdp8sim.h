@@ -14,6 +14,8 @@ extern "C" {
 #include "registers.h"
 #include "state.h"
 
+#include <stdbool.h>
+
 extern const char* progName;
 
 /************************************************************************************************

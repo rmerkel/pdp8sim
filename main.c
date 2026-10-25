@@ -1,29 +1,29 @@
 /********************************************************************************************//**
- * @file main.cc
+ * @file main.c
  * 
  * A PDP-8 Simulator Front End
  ************************************************************************************************/
 
 #include "pdp8sim.h"
 
-#include <cassert>
-#include <cstdint>
-#include <fstream>
-#include <iostream>
-
-using namespace std;
+#include <assert.h>
+#include <stdbool.h>
+#include <stdio.h>
+#include <stdint.h>
+#include <stdlib.h>
+#include <string.h>
 
 const char* progName = "pdp8sim";
+
+typedef enum BIN_State { Leader, OriginMSB, OriginLSB, DataMSB, DataLSB, Trailer } BIN_State;
 
 /********************************************************************************************//**
  * Load a BIN file into memory
  ************************************************************************************************/
-static bool load_BIN (const string& filename) {
-	enum class BIN_State { Leader, OriginMSB, OriginLSB, DataMSB, DataLSB, Trailer };
-
-	ifstream ifs{filename};
-	if (!ifs) {
-		cerr << progName << ": can't open '" << filename << "'!\n";
+static bool load_BIN (const char* filename) {
+	FILE* ifile = NULL;
+	if ((ifile = fopen(filename, "r")) == NULL) { 
+		fprintf(stderr, "%s: can't open '%s'!\n", progName, filename);
 		return false;
 	}
 
@@ -32,50 +32,49 @@ static bool load_BIN (const string& filename) {
 	const unsigned BIN_DATA_Mask	= 00077;
 	const unsigned BIN_MSB_Shift	= 6;
 
-	unsigned	data = 0;
-	uint8_t		byte;
 	char		c;
-	BIN_State	bstate = BIN_State::DataMSB;
+	unsigned	data = 0;
+	BIN_State	bstate = DataMSB;
 
-	while (ifs.get(c)) {
-		byte = static_cast<uint8_t>(c);
-
+	while ((c = getc(ifile)) != EOF) {
+		const unsigned byte = c;
 		if (byte == BIN_LEADER)
 			continue;
 
 		if ((byte & BIN_ORG_Mask) == BIN_ORG_Mask)
-			bstate = BIN_State::OriginMSB;
+			bstate = OriginMSB;
 
 		switch (bstate) {
-			case BIN_State::Leader:
+			case Leader:
 				assert(false);
 				break;
 
-			case BIN_State::OriginMSB:
+			case OriginMSB:
 				p.regs.pc = (byte & BIN_DATA_Mask) << BIN_MSB_Shift;
-				bstate = BIN_State::OriginLSB;
+				bstate = OriginLSB;
 				break;
 
-			case BIN_State::OriginLSB:
+			case OriginLSB:
 				p.regs.pc |= byte;
-				bstate = BIN_State::DataMSB;
+				bstate = DataMSB;
 				break;
 
-			case BIN_State::DataMSB:
+			case DataMSB:
 				data = (byte & BIN_DATA_Mask) << BIN_MSB_Shift;
-				bstate = BIN_State::DataLSB;
+				bstate = DataLSB;
 				break;
 
-			case BIN_State::DataLSB:
+			case DataLSB:
 				data |= byte;
 				p.mem[p.regs.pc++] = data;
-				bstate = BIN_State::DataMSB;
+				bstate = DataMSB;
 				break;
 
 			default:
 				assert(false);
 		}
 	}
+	fclose(ifile);
 
 	return true;
 }
@@ -84,12 +83,12 @@ static bool load_BIN (const string& filename) {
  * Write an help diagnostic to standard error.
  ************************************************************************************************/
 static void help() {
-	cerr	<< "Usage: " << progName << " [options... | filenames...]\n"
-			<< "Where options is zero or more of:\n"
-			<< "-h|?     -- print this message, and return 1\n"
-			<< "-v       -- print the version, and return 1\n"
-			<< '\n'
-			<< "And where filenames is zero or more program file names to load in BIN format\n";
+	fprintf(stderr, "Usage: %s [options... | filenames...]\n", progName);
+	fprintf(stderr, "Where options is zero or more of:\n");
+	fprintf(stderr, "-h|?     -- print this message, and return 1\n");
+	fprintf(stderr, "-v       -- print the version, and return 1\n");
+	fprintf(stderr, "\n");
+	fprintf(stderr, "And where filenames is zero or more program file names to load in BIN format\n");
 }
 
 /********************************************************************************************//**
@@ -101,23 +100,25 @@ int main (int argc, char** argv) {
 
 	// Scan the command line...
 	for (int argn = 1; argn < argc; ++argn) {
-		const string arg = argv[argn];
+		const char* arg = argv[argn];
 
-		if (arg == "")
+		const size_t len = strlen(arg);
+
+		if (len == 0)
 			continue;
 
-		if (arg == "-")
-			cerr << progName << ": unknown option '-',\n";
+		if (strcmp(arg, "-") == 0)
+			fprintf(stderr, "%s: unknown option '-'\n", progName);
 
 		if (arg[0] == '-') {
-			for (auto i = arg.begin() + 1; i != arg.end(); ++i) {
-				char c = *i;
+			for (unsigned i = 0; i < len; ++i) {
+				char c = arg[i];
 
 				switch(c) {
 					case '?': case 'h': help();			return 1;
-					case 'v': cout << "version 0.9\n";	return 1;
+					case 'v': printf("version 0.9\n");	return 1;
 					default:
-						cerr << progName << ": unknown option '" << c << "'.\n";
+						fprintf(stderr, "%s: unknown option '%c'!\n", progName, c);
 						return 1;
 				}
 			}
