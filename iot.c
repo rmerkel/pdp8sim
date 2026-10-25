@@ -111,10 +111,6 @@ void iot_update_devs() {
 	FD_ZERO(&write_fds);
 	FD_SET(STDOUT_FILENO, &write_fds);
 
-#if 0
-	printf("rdy %d, %d\n", FD_ISSET(STDIN_FILENO, &read_fds), FD_ISSET(STDOUT_FILENO, &write_fds));
-#endif
-
 	/*
 	 * Select can intercept Ctrl-C (SIGINT) if it is the very first character,
 	 * so treat select() errors as HALT.
