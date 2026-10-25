@@ -47,15 +47,19 @@ void iot() {
 		rdy = FD_ISSET(STDIN_FILENO, &read_fds);
 		if (ops & 1) {				//	KSF
 			if (rdy)
-				++p.regs.ac;
+				++p.regs.pc;
 		}
 
 		if (ops & 2)				//	KCC
 			FD_CLR(STDIN_FILENO, &read_fds);
 
 		if (ops & 4) {				//	KRS
-			int c;
-			read(STDIN_FILENO, &c, 1);
+			int c = 0;
+			int n = read(STDIN_FILENO, &c, 1);
+			if (n < 0) {
+				fprintf(stderr, "%s: read() error\n", progName);
+				c = 0;
+			}
 			p.regs.ac = c;
 		}
 		break;
@@ -92,7 +96,7 @@ void iot() {
 void iot_disasm(unsigned instr) {
 	const unsigned dev	= (instr & IOT_DEV_SEL) >> IOT_DEV_SHIFT;
 	const unsigned ops	= instr & IOT_OP;
-	printf("IOT %0o %0o\n", dev, ops);
+	printf("IOT %0o %0o", dev, ops);
 }
 
 /********************************************************************************************//**
@@ -106,6 +110,10 @@ void iot_update_devs() {
 
 	FD_ZERO(&write_fds);
 	FD_SET(STDOUT_FILENO, &write_fds);
+
+#if 0
+	printf("rdy %d, %d\n", FD_ISSET(STDIN_FILENO, &read_fds), FD_ISSET(STDOUT_FILENO, &write_fds));
+#endif
 
 	/*
 	 * Select can intercept Ctrl-C (SIGINT) if it is the very first character,

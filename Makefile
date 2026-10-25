@@ -63,7 +63,7 @@ all:	$(EXE) $(DOCDIR)
 ################################################################################
 
 $(EXE): $(OBJDIR) $(OBJS)
-	$(CXX) $(CXXFLAGS) -o $@ $(OBJS)
+	$(CC) $(CCFLAGS) -o $@ $(OBJS)
 
 $(OBJDIR):
 	@mkdir -p $(OBJDIR) 

@@ -32,10 +32,10 @@ Note that [PALBART](https://www.pdp8online.com/ftp/software/palbart/palbart.c) w
 
 ## Status
 
-### Bugs fixed
+### Bugs
 
-* Decode.cc builds, includes cstdint
-* Ctrl-C halts the simulator.
+* The use of signal(SIG_INT) for Ctrl-C/HALT needs to be investagated. Posix suggest sigaction(2),
+  and it's unclear if handling a SIG_INT requires get registering the SIG_INT handler.
 
 ### General 
 

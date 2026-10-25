@@ -149,9 +149,7 @@ static void fetch() {
 
 	Decode d;
 	p.regs.md 		= p.mem[p.regs.pc];
-
 	decode(p.regs.md, p.regs.pc, &d);
-
 	p.regs.pc++;
 	p.regs.ir 		= d.op;
 	p.regs.ma 		= d.eaddr;
@@ -341,7 +339,7 @@ static void dumpState() {
 	printf("%s ", 		State2Str(&p.state));
 	printf("%u ",  		p.nInstr);
 	printf("%u ",  		p.nCycles);
-	printf("(%f us)\n", p.runtime);
+	printf("(%0.1f us)\n", p.runtime);
 
 	if (p.state == Fetch) {
 		disasm(p.regs.pc, p.mem[p.regs.pc]);
@@ -388,19 +386,20 @@ static int getline(char* s, int lim) {
  * @return true to exit the simulator
  ************************************************************************************************/
 static bool frontpanel() {
-	char cmd[100];						// current command
-	char lcmd[100];						// last command
+			char cmd[100];				// current command
+	static	char lcmd[100] = {0};		// last command
 
+	cmd[0] = '\0';
 	dumpState();
-
-	strcpy(lcmd, "?");
-	cmd[0] = '\n';
- 
     fputs("> ", stdout);
-	if (getline(cmd, sizeof(cmd)) == 0)
+
+	int len = getline(cmd, sizeof(cmd));
+	if (len == 0)
 		return true;					// Ctrl-D - exit
 
-	if (cmd[0] == '\n')
+	cmd[--len] = '\0';					// Zap newline
+
+	if (len == 0)
 		strcpy(cmd, lcmd);				// Repeat last...
 	if (cmd[0] == 'c')
 		p.run = true;

@@ -1,0 +1,15 @@
+/ Echo TTY keyboard to the TTY printer until HALT
+
+*200
+START,	CLA CLL			/ Set printer flag
+	TLS
+
+LOOP,	KSF			/ Wait for new keyboard character...
+	JMP	.-1
+	KRB			/ Get the character
+
+	TSF			/ Wait for the printer to be ready...
+	JMP	.-1
+	TLS			/ Print the character
+	JMP	LOOP
+$
