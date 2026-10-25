@@ -1,19 +1,18 @@
 /********************************************************************************************//**
- * @file pdp8sim.cc
+ * @file pdp8sim.c
  * 
  * A PDP-8 Simulator
  ************************************************************************************************/
 
 #include "pdp8sim.h"
 
-#include <cassert>
-#include <csignal>
-#include <cstdint>
-#include <fstream>
-#include <iomanip>
-#include <ios>
-#include <iostream>
-#include <string>
+#include <assert.h>
+#include <signal.h>
+#include <stdbool.h>
+#include <stdint.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 #include <sys/select.h>
 #include <unistd.h>
 
@@ -22,8 +21,6 @@
 #include "opcode.h"
 #include "registers.h"
 #include "state.h"
-
-using namespace std;
 
 PDP8	p;
 
@@ -262,40 +259,40 @@ static void opr_disasm(unsigned instr) {
 	
 	if ((instr & GROUP1) == 0) {
 
-		if (instr == GRP1_NOP)												cout << "NOP ";
+		if (instr == GRP1_NOP)											printf("NOP ");
 
-		if ((instr & GRP1_CLA) == GRP1_CLA)									cout << "CLA ";
-		if ((instr & GRP1_CLL) == GRP1_CLL)									cout << "CLL ";
+		if ((instr & GRP1_CLA) == GRP1_CLA)								printf("CLA ");
+		if ((instr & GRP1_CLL) == GRP1_CLL)								printf("CLL ");
 
-		if ((instr & GRP1_CMA) == GRP1_CMA)									cout << "CMA ";
-		if ((instr & GRP1_CML) == GRP1_CML)									cout << "CML ";
+		if ((instr & GRP1_CMA) == GRP1_CMA)								printf("CMA ");
+		if ((instr & GRP1_CML) == GRP1_CML)								printf("CML ");
 		
-		if ((instr & GRP1_IAC) == GRP1_IAC)									cout << "IAC ";
+		if ((instr & GRP1_IAC) == GRP1_IAC)								printf("IAC ");
 
-		if ((instr & GRP1_RTR) == GRP1_RTR)									cout << "RTR ";
-		else if ((instr & GRP1_RAR) == GRP1_RAR)							cout << "RAR ";
-		if ((instr & GRP1_RTL) == GRP1_RTL)									cout << "RTL ";
-		else if ((instr & GRP1_RAL) == GRP1_RAL)							cout << "RAL ";
+		if ((instr & GRP1_RTR) == GRP1_RTR)								printf("RTR ");
+		else if ((instr & GRP1_RAR) == GRP1_RAR)						printf("RAR ");
+		if ((instr & GRP1_RTL) == GRP1_RTL)								printf("RTL ");
+		else if ((instr & GRP1_RAL) == GRP1_RAL)						printf("RAL ");
 
 	} else if ((instr & GROUP2) == GROUP2) {
 		if ((instr & GRP2_SKP_BIT) == GRP2_SKP_BIT) {	// SKP bit is 1
 			bool condition = false;			// true for unconditional SKP
 
-			if ((instr & GRP2_SPA) == GRP2_SPA) {	condition = true;	cout << "SPA ";	}
-			if ((instr & GRP2_SNA) == GRP2_SNA) {	condition = true;	cout << "SNA ";	}
-			if ((instr & GRP2_SZL) == GRP2_SZL) {	condition = true;	cout << "SZL ";	}
+			if ((instr & GRP2_SPA) == GRP2_SPA) {	condition = true;	printf("SPA ");	}
+			if ((instr & GRP2_SNA) == GRP2_SNA) {	condition = true;	printf("SNA ");	}
+			if ((instr & GRP2_SZL) == GRP2_SZL) {	condition = true;	printf("SZL ");	}
 
-			if ((instr & GRP2_SKP) == GRP2_SKP && !condition)			cout << "SKP";
+			if ((instr & GRP2_SKP) == GRP2_SKP && !condition)			printf("SKP");
 
 		} else {							// SKP bit is 0
-			if ((instr & GRP2_SMA) == GRP2_SMA)							cout << "SMA ";
-			if ((instr & GRP2_SZA) == GRP2_SZA)							cout << "SZA ";
-			if ((instr & GRP2_SNL) == GRP2_SNL)							cout << "SNL ";
+			if ((instr & GRP2_SMA) == GRP2_SMA)							printf("SMA ");
+			if ((instr & GRP2_SZA) == GRP2_SZA)							printf("SZA ");
+			if ((instr & GRP2_SNL) == GRP2_SNL)							printf("SNL ");
 		}
 	
-		if ((instr & GRP2_CLA) == GRP2_CLA)								cout << "CLA ";
-		if ((instr & GRP2_OSR) == GRP2_OSR)								cout << "OSR ";
-		if ((instr & GRP2_HLT) == GRP2_HLT)								cout << "HLT ";
+		if ((instr & GRP2_CLA) == GRP2_CLA)								printf("CLA ");
+		if ((instr & GRP2_OSR) == GRP2_OSR)								printf("OSR ");
+		if ((instr & GRP2_HLT) == GRP2_HLT)								printf("HLT ");
 
 	} else
 		assert(false);						// Other groups are not supported... yet.
@@ -304,11 +301,10 @@ static void opr_disasm(unsigned instr) {
 /********************************************************************************************//**
  ************************************************************************************************/
 static void mri_disasm(const Decode& d) {
-	cout	<< OpCode2Str(d.op) << ' ';
+	printf("%s ", OpCode2Str(d.op));
 	if (d.i)
-		cout << "I ";
-	cout	<< setw(4)	<< d.eaddr
-			<< " (" << setw(4) << p.mem[d.eaddr] << ')';
+		fputs("I ", stdout);
+	printf("%04o (%04o)", d.eaddr, p.mem[d.eaddr]);
 }
 
 
@@ -319,9 +315,7 @@ static void disasm(unsigned addr, unsigned instr) {
 	Decode d;
 	decode(instr, addr, &d);
 
-	cout	<< oct << setfill('0');
-	cout	<< setw(4) 	<< addr 		<< ' '
-			<< setw(4)	<< p.mem[addr]	<< ' ';
+	printf("%04o (%04o) ", addr, p.mem[addr]);
 	switch (d.op) {
 		case OpCode::OPR:	opr_disasm(instr);		break;
 		case OpCode::IOT: 	iot_disasm(instr);		break;
@@ -333,57 +327,59 @@ static void disasm(unsigned addr, unsigned instr) {
  * Dump the processor state
  ************************************************************************************************/
 static void dumpState() {
-	cout << oct << setfill('0');
+	printf("PC %04o ",	p.regs.pc);
+	printf("(%04o) ",	p.mem[p.regs.pc]);
+	printf("L %d ",		p.regs.l);
+	printf("AC %04o ", 	p.regs.ac);
 
-    cout
-			<< "PC "	<< setw(4)	<< p.regs.pc		<< ' '
-			<< '('		<< setw(4) 	<< p.mem[p.regs.pc]	<< ") "
-		 	<< "L "					<< p.regs.l 		<< ' '
-			<< "AC "	<< setw(4)	<< p.regs.ac		<< '\n' 
+	printf("MA %04o ", 	p.regs.ma);
+	printf("(%04o)    ",p.mem[p.regs.ma]);
+    printf("MD %04o ", 	p.regs.md);
+    printf("SR %04o\n", p.regs.sr);
 
-    		<< "MA "	<< setw(4)	<< p.regs.ma		<< ' '
-			<< '('		<< setw(4)	<< p.mem[p.regs.ma]	<< ")     "
-           	<< "MD "	<< setw(4)	<< p.regs.md		<< ' '
-           	<< "SR "	<< setw(4)	<< p.regs.sr		<< '\n'
-
-			<< "IR "				<< OpCode2Str(p.regs.ir)		<< ' '
-			<< setfill(' ')
-						<< setw(2)  << State2Str(&p.state)	<< ' '
-						<< setw(4)	<< p.nInstr			<< " Instructions, "
-						<< setw(4)	<< p.nCycles		<< " Cycles, "
-			<< '(' 					<< p.runtime		<< " us)"
-			<< '\n';
+	printf("IR %s ",	OpCode2Str(p.regs.ir));
+	printf("%s ", 		State2Str(&p.state));
+	printf("%u ",  		p.nInstr);
+	printf("%u ",  		p.nCycles);
+	printf("(%f us)\n", p.runtime);
 
 	if (p.state == Fetch) {
 		disasm(p.regs.pc, p.mem[p.regs.pc]);
-		cout	<< '\n';
+		putchar('\n');
 	}
 }
 
 /********************************************************************************************//**
- * @return true if s is a number
+ * @return true if s is a valid 12-bit number
  ************************************************************************************************/
-static bool digit(const string& s) {
-	try {
-		const int i{std::stoi(s, nullptr, 0)};
+static bool digit(const char* s) {
+	const long i = strtol(s, NULL, 0);
+	if (i > UINT12_MAX) {
+		fprintf(stderr, "%s: %ld must be less than or equal to %d!\n", progName, i, UINT12_MAX);
+		return false;
 
-		if (static_cast<unsigned>(i) > UINT12_MAX)
-			cerr << "'" << i << "i is greater than " << INT12_MAX << "\n";
+	} else if (i < INT12_MIN) {
+		fprintf(stderr, "%s: %ld must be greeater or euqal to %d!\n", progName, i, INT12_MIN);
+		return true;
 
-		else if (i < INT12_MIN)
-			cerr << "'" << i << "i is less than " << UINT12_MAX << "\n";
+	} else {
+		p.regs.sr = i;
+		return true;
+	}
+} 
 
-		else
-			p.regs.sr = i;
-
-	} catch (std::invalid_argument const& ex) {
-        return false;							// Ignore, not a "digit"
-
-   	} catch (std::out_of_range const& ex) {
-        std::cout << "std::out_of_range::what(): " << ex.what() << '\n';
-   	}	
-
-	return true;
+/********************************************************************************************//**
+ * @cite K&R 2nd Ed, 4.1
+ ************************************************************************************************/
+static int getline(char* s, int lim) {
+	int c;
+	int i = 0;
+	while (--lim > 0 && (c = getchar()) != EOF && c != '\n')
+		s[i++] = c;
+	if (c == '\n')
+		s[i++] = c;
+	s[i] = '\0';
+	return i;
 }
 
 /********************************************************************************************//**
@@ -392,63 +388,65 @@ static bool digit(const string& s) {
  * @return true to exit the simulator
  ************************************************************************************************/
 static bool frontpanel() {
-	dumpState();
- 
-    static string lcmd = "?";			// last comand
-    string cmd = "";					// current command
+	char cmd[100];						// current command
+	char lcmd[100];						// last command
 
-    cout << "> ";
-    if (!getline(cin, cmd))
+	dumpState();
+
+	strcpy(lcmd, "?");
+	cmd[0] = '\n';
+ 
+    fputs("> ", stdout);
+	if (getline(cmd, sizeof(cmd)) == 0)
 		return true;					// Ctrl-D - exit
 
-	if (cmd == "")
-		cmd = lcmd;						// Repeat last...
+	printf("getline returned \'%s\'\n", cmd);
 
-	if (cmd.find("c") == 0)				// C[ontinue]
+	if (cmd[0] == '\n')
+		strcpy(cmd, lcmd);				// Repeat last...
+	if (cmd[0] == 'c')
 		p.run = true;
-
-										// Help
-	else if (cmd == "?" || cmd.find("h") == 0) {
-		cout	<< "<number>     -- Set SR\n"
-				<< "?|h[elp]     -- Print help\n"
-				<< "c[ont]       -- Continue\n"
-				<< "e[examine]   -- Examine memory\n"
-				<< "ld[addr]     -- Load address\n"
-				<< "la[ddr]      -- Load address\n"
-				<< "[no]si[nstr] -- Single instruction\n"
-				<< "[no]ss[tep]  -- Single step\n"
-				<< "s[tart]      -- Start\n"
-				<< "q[uit]       -- Exit\n"
-				<< "<return>     -- Repeat last command\n"
-				<< "<ctrl-c>     -- Halt\n"
-				<< "<ctrl-d>     -- Same as q[uit]\n";
-	} else if (cmd.find("e")	== 0) {	// examine memory
+	else if (cmd[0] == '?' || cmd[0] == 'h') {
+		fputs("<number>     -- Set SR\n", stdout);
+		fputs("?|h[elp]     -- Print help\n", stdout);
+		fputs("c[ont]       -- Continue\n", stdout);
+		fputs("e[examine]   -- Examine memory\n", stdout);
+		fputs("ld[addr]     -- Load address\n", stdout);
+		fputs("la[ddr]      -- Load address\n", stdout);
+		fputs("[no]si[nstr] -- Single instruction\n", stdout);
+		fputs("[no]ss[tep]  -- Single step\n", stdout);
+		fputs("s[tart]      -- Start\n", stdout);
+		fputs("q[uit]       -- Exit\n", stdout);
+		fputs("<return>     -- Repeat last command\n", stdout);
+		fputs("<ctrl-c>     -- Halt\n", stdout);
+		fputs("<ctrl-d>     -- Same as q[uit]\n", stdout);
+	} else if (cmd[0] == 'e') {			// examine memory
 		p.regs.md = p.mem[p.regs.pc];
 		p.regs.ma = p.regs.pc++;
-	} else if (cmd.find("ld")	== 0 || cmd.find("la") == 0)
+	} else if (cmd[0] == 'l')			// ld or la
 		p.regs.pc = p.regs.sr;			// load address
-	else if (cmd.find("nosi")	== 0)	// noinstr
+	else if (strcmp(cmd, "nosi") == 0)	// noinstr
 		p.sw.sinstr = false;
-	else if (cmd.find("noss")	== 0)	// nosstep
+	else if (strcmp(cmd, "noss") == 0)	// nosstep
 		p.sw.sstep = false;
-	else if (cmd.find("si")		== 0)	// sinstr
+	else if (strcmp(cmd, "si") 	== 0)	// sinstr
 		p.sw.sinstr = true;
-	else if (cmd.find("ss")		== 0)	// sstep
+	else if (strcmp(cmd, "ss")	== 0)	// sstep
 		p.sw.sstep = true;
-	else if (cmd.find( "s")		== 0) {	// start
+	else if (cmd[0] == 's') {			// start
 		p.regs.l				= false;
 		p.regs.ac = p.regs.md	= 0;
-		p.regs.ma 				= p.regs.pc;			// Shouldn't this be from the switch register?
+		p.regs.ma 				= p.regs.pc = p.regs.sr;
 		p.state					= Fetch;
 		p.run 					= true;
-	} else if (cmd == "q" || cmd == "quit")
+	} else if (cmd[0] == 'q')
 		return true;					// quit
 	else if (digit(cmd))				// number (simple)
 		;
     else 
-		cerr << "Unknown command: '" << cmd << "!\n";
+		fprintf(stderr, "%s Unknown command: %s\n", progName, cmd);
 
-	lcmd = cmd;
+	strcpy(lcmd, cmd);
         
 	return false;
 }
@@ -459,7 +457,7 @@ static bool frontpanel() {
 void signal_handler(int signal_num) {
 	assert(signal_num ==  SIGINT);
 	p.run = false;
-	cout << endl;
+	putchar('\n');
 }
 
 /********************************************************************************************//**
@@ -473,13 +471,14 @@ int process() {
 				iot_update_devs();
 
                 do {				// 	Next memory state
-
-                    switch(p.state) {
+                	switch(p.state) {
                     case Fetch:      fetch();    break;
                     case Defer:      defer();    break;
                     case Execute:    execute();  break;
                     case Break:      brk();      break;
-                    default: cerr << "unknown state!\n";
+                    default:
+						assert(false);	// shouldn't be possible
+						fprintf(stderr, "%s: unknown state!\n", progName);
                     }
 
 					++p.nCycles;
@@ -505,9 +504,11 @@ int process() {
  * @bug	Maybe allocate and return a PDP8 object, to be passed to [PDP8sim_]process()?
  ************************************************************************************************/
 int pdp8_init() {
+	memset(&p, 0, sizeof (p));
+
 	// Ctrl-C (SIGINT) as the front pannel HALT switch
 	if (signal(SIGINT, signal_handler) == SIG_ERR) {
-		cerr << progName << ": error registering SIGINT handler!" << endl;
+		fprintf(stderr, "%s: error registering SIGINT handler!\n", progName);
 		return 1;
 	}
 
