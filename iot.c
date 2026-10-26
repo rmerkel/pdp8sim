@@ -18,6 +18,12 @@ fd_set	write_fds;						// Write device ready flags
 
 /********************************************************************************************//**
  * Simulate an IOT instruction.
+ *
+ * Note that ION is delayed by ION_DELAY instructions, including the ION instruction. This allows
+ * a return from interrupt to work correctly, e.g.,
+ *
+ *     	ION		/ Enable interrupts AFTER the following instruction
+ *		JMS I 0	/ Return from interrupt
  ************************************************************************************************/
 void iot() {
 	const	unsigned 	dev	= (p.regs.md & IOT_DEV_SEL) >> IOT_DEV_SHIFT;
@@ -25,12 +31,14 @@ void iot() {
 			bool		rdy	= false;	// Capture before IOP2 clears the device flag.
 
 	switch (dev) {
-	case 0:							// System
-		if (ops == 1)				// ION, unmask interrupts, with delay so that ION takes effet at the end of the following instuction
-			fprintf(stderr, "ION is not implemented, ignored.\n");
-		else if (ops == 2)			// IOF, mask interrupts
-			fprintf(stderr, "IOF is not implemented, ignored.\n");
-		else {
+	case 0:								// System
+		if (ops == 1) {					// ION, enable interrupts
+			if (!p.flags.int_en)
+				p.ion_delay = ION_DELAY;
+		} else if (ops == 2) {			// IOF, disable interrupts
+			p.ion_delay = 0;
+			p.flags.int_en = false;
+		} else {
 			fprintf(stderr, "Unknown IOT System operation: %03o!\n", ops);
 			assert(false);
 		}
@@ -110,6 +118,9 @@ void iot_update_devs() {
 
 	FD_ZERO(&write_fds);
 	FD_SET(STDOUT_FILENO, &write_fds);
+
+	if (FD_ISSET(STDIN_FILENO, &read_fds) || FD_ISSET(STDOUT_FILENO, &write_fds))
+		p.flags.int_pend = true;
 
 	/*
 	 * Select can intercept Ctrl-C (SIGINT) if it is the very first character,

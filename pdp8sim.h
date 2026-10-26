@@ -71,13 +71,17 @@ extern const char* progName;
 
 #define	IOT_OP			00007	///< IO Operations
 
+#define	ION_DELAY		3		///< # of instructions delay before ION becomes active
+
 /********************************************************************************************//**
  * Front Panel switches
  ************************************************************************************************/
-typedef struct Switches {
-    bool        sstep   : 1;
-    bool        sinstr  : 1;
-} Switches;
+typedef struct Flags {
+    bool        sstep   	: 1;			// Front-panel single-step (cycle) switch
+    bool        sinstr  	: 1;			// Front-panel single-instruction switch
+	bool		int_en		: 1;			// true if interrupts are inabled.
+	bool		int_pend	: 1;			// true if an interrupt is pending
+} Flags;
 
 /************************************************************************************************
  * Processor State
@@ -86,13 +90,14 @@ typedef struct Switches {
  ************************************************************************************************/
 typedef struct PDP8 {
 	bool        run;
-	Switches    sw;
+	Flags    	flags;
+	unsigned	ion_delay;					// int_en set when this counts down to zero
 	Registers	regs;
 	State       state;
 	unsigned    mem[4096];
 	unsigned	nCycles;
 	unsigned	nInstr;
-	double		runtime;						// Cumulative runtine in us.
+	double		runtime;					// cumulative runtine in us.
 } PDP8;
 
 /********************************************************************************************//**

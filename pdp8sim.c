@@ -131,7 +131,7 @@ static void oper_group2(unsigned instr) {
  * OPeRate
  ************************************************************************************************/
 static void oper(unsigned instr) {
-	if (	 (instr & GROUP1) == 0)
+	if ((instr & GROUP1) == 0)
 		oper_group1(instr);
 
 	else if ((instr & GROUP2) == GROUP2)
@@ -145,32 +145,42 @@ static void oper(unsigned instr) {
  * Fetch state...
  ************************************************************************************************/
 static void fetch() {
-	++p.nInstr;
+	if (p.flags.int_en && p.flags.int_pend) {
+		p.regs.ir = JMS;					// Force a JMS 0
+		p.regs.md = 07000;
+		p.regs.ma = 0;
+		p.flags.int_en = false;				// Disable interrupts
+		p.ion_delay = 0;
+       	p.state = Defer;
 
-	Decode d;
-	p.regs.md 		= p.mem[p.regs.pc];
-	decode(p.regs.md, p.regs.pc, &d);
-	p.regs.pc++;
-	p.regs.ir 		= d.op;
-	p.regs.ma 		= d.eaddr;
+	} else {								// Normal operation...
+		++p.nInstr;
 
-    if (p.regs.ir == IOT) {			// IOT?
-		iot();
-        p.state = Fetch;
+		Decode d;
+		p.regs.md 		= p.mem[p.regs.pc];
+		decode(p.regs.md, p.regs.pc, &d);
+		p.regs.pc++;
+		p.regs.ir 		= d.op;
+		p.regs.ma 		= d.eaddr;
 
-	} else if (p.regs.ir == OPR) {	// OPR?
-		oper(p.regs.md);
-		p.state = Fetch;
+    	if (p.regs.ir == IOT) {				// IOT?
+			iot();
+        	p.state = Fetch;
 
-    } else if (d.i)                  		// Indirect?
-       p.state = Defer;				//	r.ma is the address of the operation
+		} else if (p.regs.ir == OPR) {		// OPR?
+			oper(p.regs.md);
+			p.state = Fetch;
+
+    	} else if (d.i)                  	// Indirect?
+       		p.state = Defer;				//	r.ma is the address of the operation
 	   
-    else if (p.regs.ir == JMP) {	// JMP direct?
-        p.regs.pc = p.regs.ma;
-        p.state = Fetch;
+    	else if (p.regs.ir == JMP) {		// JMP direct?
+        	p.regs.pc = p.regs.ma;
+        	p.state = Fetch;
 
     } else
        p.state = Execute;
+	}
 }
 
 /********************************************************************************************//**
@@ -424,16 +434,16 @@ static bool frontpanel() {
 	} else if (cmd[0] == 'l')			// ld or la
 		p.regs.pc = p.regs.sr;			// load address
 	else if (strcmp(cmd, "nosi") == 0)	// noinstr
-		p.sw.sinstr = false;
+		p.flags.sinstr = false;
 	else if (strcmp(cmd, "noss") == 0)	// nosstep
-		p.sw.sstep = false;
+		p.flags.sstep = false;
 	else if (strcmp(cmd, "si") 	== 0)	// sinstr
-		p.sw.sinstr = true;
+		p.flags.sinstr = true;
 	else if (strcmp(cmd, "ss")	== 0)	// sstep
-		p.sw.sstep = true;
+		p.flags.sstep = true;
 	else if (cmd[0] == 's') {			// start
 		p.regs.l				= false;
-		p.regs.ac = p.regs.md	= 0;
+		p.regs.ac	= p.regs.md	= 0;
 		p.regs.ma 				= p.regs.pc = p.regs.sr;
 		p.state					= Fetch;
 		p.run 					= true;
@@ -456,8 +466,14 @@ static bool frontpanel() {
  ************************************************************************************************/
 void signal_handler(int signal_num) {
 	assert(signal_num ==  SIGINT);
+	(void) (signal_num);
 	p.run = false;
-	putchar('\n');
+
+	if (signal(SIGINT, signal_handler) == SIG_ERR) {
+		fprintf(stderr, "%s: error registering SIGINT handler!\n", progName);
+		assert(false);
+	}
+	putchar('\n');					// So that the "^C" is on it's own line
 }
 
 /********************************************************************************************//**
@@ -482,14 +498,15 @@ int process() {
                     }
 
 					++p.nCycles;
-					p.runtime += 1.5;
+					p.runtime += 1.5;	// 1.5us per cycle, except for IOT
 
-					// Calc cumulative runtime here...
+                } while (p.run && !p.flags.sstep && p.state != Fetch);
+            } while (p.run && !p.flags.sinstr && !p.flags.sstep);
 
-                } while (p.run && !p.sw.sstep && p.state != Fetch);
-            } while (p.run && !p.sw.sinstr && !p.sw.sstep);
+			if (p.ion_delay && --p.ion_delay == 0)
+				p.flags.int_en  = true;	// ION takes effect
 
-            p.run = p.run && !p.sw.sstep && !p.sw.sinstr;
+            p.run = p.run && !p.flags.sstep && !p.flags.sinstr;
 
         } else if (frontpanel())
 			return 0;
@@ -514,3 +531,4 @@ int pdp8_init() {
 
 	return 0;
 }
+
