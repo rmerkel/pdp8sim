@@ -19,9 +19,7 @@
 fd_set	read_fds;					// Read device ready flags
 fd_set	write_fds;					// Write device ready flags
 
-#if 	1
-bool	ready[64] = { false };		// Device ready flags
-#endif
+bool	ready[64] = { false };		// Device ready flags, indexed by device ID.
 
 /********************************************************************************************//**
  * Simulate an IOT instruction.
@@ -124,12 +122,10 @@ void iot_update_devs() {
 	FD_ZERO(&write_fds);
 	FD_SET(STDOUT_FILENO, &write_fds);
 
-#if 1
 	if (FD_ISSET(STDIN_FILENO, &read_fds))
 		ready[3] = true;
 	if (FD_ISSET(STDOUT_FILENO, &write_fds))
 		ready[4] = true;
-#endif
 
 	/*
 	 * Select can intercept Ctrl-C (SIGINT) if it is the very first character,
@@ -140,7 +136,7 @@ void iot_update_devs() {
 	if (r > 0)
 		p.flags.int_pend = true;
 
-#if 1
+#if 0
 	fprintf(stderr, "%d, %d: %b, %b\n", ready[3], ready[4], p.flags.int_en, p.flags.int_pend);
 #endif
 }

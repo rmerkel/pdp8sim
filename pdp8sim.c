@@ -374,7 +374,10 @@ static bool digit(const char* s) {
 		fprintf(stderr, "%s: %ld must be greeater or euqal to %d!\n", progName, i, INT12_MIN);
 		return true;
 
-	} else {
+	} else if (i == 0)
+		return false;
+
+	else {
 		p.regs.sr = i;
 		return true;
 	}
@@ -468,7 +471,7 @@ static bool frontpanel() {
 	else if (digit(cmd))				// number (simple)
 		;
     else 
-		fprintf(stderr, "%s Unknown command: %s\n", progName, cmd);
+		fprintf(stderr, "%s Unknown command: '%s'!\n", progName, cmd);
 
 	strcpy(lcmd, cmd);
         
