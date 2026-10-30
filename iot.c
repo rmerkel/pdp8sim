@@ -74,7 +74,7 @@ void iot() {
 				fprintf(stderr, "%s: read() error\n", progName);
 				c = 0;
 			}
-			p.regs.ac = c & MPARITY;
+			p.regs.ac = c | MPARITY;
 		}
 		break;
 

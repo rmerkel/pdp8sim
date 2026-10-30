@@ -71,7 +71,7 @@ extern const char* progName;
 
 #define	IOT_OP			00007	///< IO Operations
 
-#define	ION_DELAY		2		///< # of instructions delay before ION becomes active
+#define	ION_DELAY		1		///< # of instructions delay before ION becomes active
 
 /********************************************************************************************//**
  * Front Panel switches
