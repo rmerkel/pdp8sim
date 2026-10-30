@@ -56,7 +56,7 @@ extern const char* progName;
 #define	GRP2_SMA		07500	///< Skip on minus AC, sequence 1
 #define	GRP2_SZA		07440	///< Skip on zero AC, sequence 1
 #define	GRP2_SPA		07510	///< Skip on plus AC, sequence 1
-#define 	GRP2_SNA	07450	///< Skip on plus AC, sequence 1
+#define GRP2_SNA		07450	///< Skip on plus AC, sequence 1
 #define	GRP2_SNL		07420	///< Skip on non-zero AC, sequence 1
 #define	GRP2_SZL		07430	///< Skip on zero link, sequence 1
 #define	GRP2_SKP		07410	///< Skip unconditionally, sequence 1
@@ -71,16 +71,20 @@ extern const char* progName;
 
 #define	IOT_OP			00007	///< IO Operations
 
-#define	ION_DELAY		3		///< # of instructions delay before ION becomes active
+#define	ION_DELAY		2		///< # of instructions delay before ION becomes active
 
 /********************************************************************************************//**
  * Front Panel switches
  ************************************************************************************************/
 typedef struct Flags {
+	bool		run			: 1; 			// true if running, false if in idle mode
     bool        sstep   	: 1;			// Front-panel single-step (cycle) switch
     bool        sinstr  	: 1;			// Front-panel single-instruction switch
 	bool		int_en		: 1;			// true if interrupts are inabled.
 	bool		int_pend	: 1;			// true if an interrupt is pending
+#if 0
+	bool		trace		: 1;			// Trace operation if true
+#endif
 } Flags;
 
 /************************************************************************************************
@@ -89,7 +93,6 @@ typedef struct Flags {
  * @bug	Cumulative run time needs to be accumulated here.
  ************************************************************************************************/
 typedef struct PDP8 {
-	bool        run;
 	Flags    	flags;
 	unsigned	ion_delay;					// int_en set when this counts down to zero
 	Registers	regs;

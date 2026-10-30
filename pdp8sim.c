@@ -24,6 +24,8 @@
 
 PDP8	p;
 
+#undef	TRACE
+
 /********************************************************************************************//**
  ************************************************************************************************/
 static void ral() {
@@ -124,7 +126,7 @@ static void oper_group2(unsigned instr) {
 	// Sequence 3
 
 	if ((instr & GRP2_OSR) == GRP2_OSR)		p.regs.ac |= p.regs.sr;
-	if ((instr & GRP2_HLT) == GRP2_HLT)		p.run = false;
+	if ((instr & GRP2_HLT) == GRP2_HLT)		p.flags.run = false;
 }
 
 /********************************************************************************************//**
@@ -147,11 +149,13 @@ static void oper(unsigned instr) {
 static void fetch() {
 	if (p.flags.int_en && p.flags.int_pend) {
 		p.regs.ir = JMS;					// Force a JMS 0
-		p.regs.md = 07000;
+//		p.regs.md = 07000;
 		p.regs.ma = 0;
+
 		p.flags.int_en = false;				// Disable interrupts
 		p.ion_delay = 0;
-       	p.state = Defer;
+
+       	p.state = Execute;
 
 	} else {								// Normal operation...
 		++p.nInstr;
@@ -178,8 +182,8 @@ static void fetch() {
         	p.regs.pc = p.regs.ma;
         	p.state = Fetch;
 
-    } else
-       p.state = Execute;
+    	} else
+       		p.state = Execute;
 	}
 }
 
@@ -242,7 +246,7 @@ static void execute() {
 		break;
 
     case IOT:
-		assert(false);						// Not expected in this state!
+		assert(false);				// Not expected in this state!
 		break;
 
     case OPR:						// Not expected in this state!
@@ -335,21 +339,21 @@ static void disasm(unsigned addr, unsigned instr) {
  * Dump the processor state
  ************************************************************************************************/
 static void dumpState() {
-	printf("PC %04o ",	p.regs.pc);
-	printf("(%04o) ",	p.mem[p.regs.pc] & UINT8_MAX);
-	printf("L %d ",		p.regs.l);
-	printf("AC %04o ", 	p.regs.ac);
+	printf("PC %04o ",			p.regs.pc);
+	printf("(%04o) ",			p.mem[p.regs.pc] & UINT8_MAX);
+	printf("L %d ",				p.regs.l);
+	printf("AC %04o ", 			p.regs.ac);
 
-	printf("MA %04o ", 	p.regs.ma);
-	printf("(%04o)    ",p.mem[p.regs.ma] & UINT8_MAX);
-    printf("MD %04o ", 	p.regs.md);
-    printf("SR %04o\n", p.regs.sr);
+	printf("MA %04o ", 			p.regs.ma);
+	printf("(%04o)    ",		p.mem[p.regs.ma] & UINT8_MAX);
+    printf("MD %04o ", 			p.regs.md);
+    printf("SR %04o\n", 		p.regs.sr);
 
-	printf("IR %s ",	OpCode2Str(p.regs.ir));
-	printf("%s ", 		State2Str(&p.state));
-	printf("%u ",  		p.nInstr);
-	printf("%u ",  		p.nCycles);
-	printf("(%0.1f us)\n", p.runtime);
+	printf("IR %s ",			OpCode2Str(p.regs.ir));
+	printf("%s ", 				State2Str(&p.state));
+	printf("%u instructions ",	p.nInstr);
+	printf("%u cycles ",  		p.nCycles);
+	printf("(%0.1f us)\n", 		p.runtime);
 
 	if (p.state == Fetch) {
 		disasm(p.regs.pc, p.mem[p.regs.pc]);
@@ -413,7 +417,7 @@ static bool frontpanel() {
 	if (len == 0)
 		strcpy(cmd, lcmd);				// Repeat last...
 	if (cmd[0] == 'c')
-		p.run = true;
+		p.flags.run = true;
 	else if (cmd[0] == '?' || cmd[0] == 'h') {
 		fputs("<number>     -- Set SR\n", stdout);
 		fputs("?|h[elp]     -- Print help\n", stdout);
@@ -424,6 +428,9 @@ static bool frontpanel() {
 		fputs("[no]si[nstr] -- Single instruction\n", stdout);
 		fputs("[no]ss[tep]  -- Single step\n", stdout);
 		fputs("s[tart]      -- Start\n", stdout);
+#ifdef TRACE
+		fputs("[no]t[race]  -- Trace\n", stdout);
+#endif
 		fputs("q[uit]       -- Exit\n", stdout);
 		fputs("<return>     -- Repeat last command\n", stdout);
 		fputs("<ctrl-c>     -- Halt\n", stdout);
@@ -437,6 +444,10 @@ static bool frontpanel() {
 		p.flags.sinstr = false;
 	else if (strcmp(cmd, "noss") == 0)	// nosstep
 		p.flags.sstep = false;
+#ifdef TRACE
+	else if (strcmp(cmd, "not") == 0)	// notrace
+		p.flags.trace = false;
+#endif
 	else if (strcmp(cmd, "si") 	== 0)	// sinstr
 		p.flags.sinstr = true;
 	else if (strcmp(cmd, "ss")	== 0)	// sstep
@@ -446,8 +457,13 @@ static bool frontpanel() {
 		p.regs.ac	= p.regs.md	= 0;
 		p.regs.ma 				= p.regs.pc = p.regs.sr;
 		p.state					= Fetch;
-		p.run 					= true;
-	} else if (cmd[0] == 'q')
+		p.flags.run 			= true;
+	}
+#ifdef	TRACE
+	else if (cmd[0] == 't')			// trace
+		p.flags.trace = true;
+#endif
+	else if (cmd[0] == 'q')
 		return true;					// quit
 	else if (digit(cmd))				// number (simple)
 		;
@@ -467,7 +483,7 @@ static bool frontpanel() {
 void signal_handler(int signal_num) {
 	assert(signal_num ==  SIGINT);
 	(void) (signal_num);
-	p.run = false;
+	p.flags.int_en = false;
 
 	if (signal(SIGINT, signal_handler) == SIG_ERR) {
 		fprintf(stderr, "%s: error registering SIGINT handler!\n", progName);
@@ -480,38 +496,53 @@ void signal_handler(int signal_num) {
  * Run the processor/debugger...
  ************************************************************************************************/
 int process() {
-	p.run = false;					// Processor starts in idle mode...
+	p.flags.run = false;			// Processor starts in idle mode...
+
     for (;;) {
-		if (p.run) {
-            do {					// Next instruction (mem[r.pc])
+		if (p.flags.run) {				// Running?
+			do {						// Next instruction (mem[pc])
 				iot_update_devs();
 
-                do {				// 	Next memory state
+#if 0
+				fprintf(stderr, "en %d, pend %d\n", p.flags.int_en, p.flags.int_pend);
+#endif
+
+				do {					// Next memory cycle
                 	switch(p.state) {
                     case Fetch:      fetch();    break;
                     case Defer:      defer();    break;
                     case Execute:    execute();  break;
                     case Break:      brk();      break;
                     default:
+						fprintf(stderr, "%s: unknown state: %d!\n", progName, p.state);
 						assert(false);	// shouldn't be possible
-						fprintf(stderr, "%s: unknown state!\n", progName);
+						return EXIT_FAILURE;
                     }
 
 					++p.nCycles;
 					p.runtime += 1.5;	// 1.5us per cycle, except for IOT
 
-                } while (p.run && !p.flags.sstep && p.state != Fetch);
-            } while (p.run && !p.flags.sinstr && !p.flags.sstep);
+					// Until the next cycle is fetch, or halted, or single-step (state)
+				} while (p.flags.run && !p.flags.sstep && p.state != Fetch);
+
+				// Until next state is Fetch, or halted, or single-step (instruction)
+			} while (p.flags.run && !p.flags.sinstr && !p.flags.sstep);
 
 			if (p.ion_delay && --p.ion_delay == 0)
-				p.flags.int_en  = true;	// ION takes effect
+				p.flags.int_en  = true; // ION takes effect
 
-            p.run = p.run && !p.flags.sstep && !p.flags.sinstr;
+#ifdef	TRACE
+				if (p.flags.trace) {
+					dumpState();
+    				putchar('\n');
+				}
+#endif
 
-        } else if (frontpanel())
-			return 0;
+			if (p.flags.sstep || p.flags.sinstr)
+				p.flags.run = false;	// Enter idle mode
 
-		// else: keep going...
+		} else if (frontpanel())		// Idle mode, check "front-panel"
+			return EXIT_SUCCESS;		// Quit
 	}
 }
 
@@ -526,9 +557,9 @@ int pdp8_init() {
 	// Ctrl-C (SIGINT) as the front pannel HALT switch
 	if (signal(SIGINT, signal_handler) == SIG_ERR) {
 		fprintf(stderr, "%s: error registering SIGINT handler!\n", progName);
-		return 1;
+		return EXIT_FAILURE;
 	}
 
-	return 0;
+	return EXIT_SUCCESS;
 }
 

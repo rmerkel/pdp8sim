@@ -13,8 +13,15 @@
 #include <sys/select.h>
 #include <unistd.h>
 
-fd_set	read_fds;						// Read device ready flags
-fd_set	write_fds;						// Write device ready flags
+#define	MPARITY			0200		// Set bit 7 for Mark parity
+#define	MPARITY_MASK	0177		// Clear bit 7 to clear Mark parity
+
+fd_set	read_fds;					// Read device ready flags
+fd_set	write_fds;					// Write device ready flags
+
+#if 	1
+bool	ready[64] = { false };		// Device ready flags
+#endif
 
 /********************************************************************************************//**
  * Simulate an IOT instruction.
@@ -28,7 +35,7 @@ fd_set	write_fds;						// Write device ready flags
 void iot() {
 	const	unsigned 	dev	= (p.regs.md & IOT_DEV_SEL) >> IOT_DEV_SHIFT;
 	const	unsigned	ops	= p.regs.md & IOT_OP;
-			bool		rdy	= false;	// Capture before IOP2 clears the device flag.
+			bool*		pRdy = &ready[dev];
 
 	switch (dev) {
 	case 0:								// System
@@ -52,14 +59,13 @@ void iot() {
 		fprintf(stderr,  "PSF/PCF/PPC/PLS is not implemented, ignored.\n");
 
 	case 3: 						// Teletype Keyboard Reader
-		rdy = FD_ISSET(STDIN_FILENO, &read_fds);
 		if (ops & 1) {				//	KSF
-			if (rdy)
+			if (*pRdy)
 				++p.regs.pc;
 		}
 
 		if (ops & 2)				//	KCC
-			FD_CLR(STDIN_FILENO, &read_fds);
+			*pRdy = false;
 
 		if (ops & 4) {				//	KRS
 			int c = 0;
@@ -68,23 +74,22 @@ void iot() {
 				fprintf(stderr, "%s: read() error\n", progName);
 				c = 0;
 			}
-			p.regs.ac = c;
+			p.regs.ac = c & MPARITY;
 		}
 		break;
 
 	case 4:							// Teletype Teleprinter/Punch
-		rdy = FD_ISSET(STDOUT_FILENO, &write_fds);
 		if (ops & 1) {				//	TSF
-			if (rdy)
+			if (*pRdy)
 				++p.regs.pc;
 		}
 
 		if (ops & 2)				//	TCF
-			FD_CLR(STDOUT_FILENO, &write_fds);
+			*pRdy = false;
 			
 		if (ops & 4) {				// 	TPC
 			if (p.regs.ac !=0) {
-				int c = p.regs.ac & 0177;
+				int c = p.regs.ac & MPARITY_MASK;
 				write(STDOUT_FILENO, &c, 1);
 			}
 		}
@@ -119,17 +124,24 @@ void iot_update_devs() {
 	FD_ZERO(&write_fds);
 	FD_SET(STDOUT_FILENO, &write_fds);
 
-	if (FD_ISSET(STDIN_FILENO, &read_fds) || FD_ISSET(STDOUT_FILENO, &write_fds))
-		p.flags.int_pend = true;
+#if 1
+	if (FD_ISSET(STDIN_FILENO, &read_fds))
+		ready[3] = true;
+	if (FD_ISSET(STDOUT_FILENO, &write_fds))
+		ready[4] = true;
+#endif
 
 	/*
 	 * Select can intercept Ctrl-C (SIGINT) if it is the very first character,
 	 * so treat select() errors as HALT.
 	 */
 
-	if (select(STDOUT_FILENO+1, &read_fds, &write_fds, NULL, &timeout) < 0)
-		signal_handler(SIGINT); 
-	else
-		; // set interrupt pending here.
+	const int r = select(STDOUT_FILENO+1, &read_fds, &write_fds, NULL, &timeout);
+	if (r > 0)
+		p.flags.int_pend = true;
+
+#if 1
+	fprintf(stderr, "%d, %d: %b, %b\n", ready[3], ready[4], p.flags.int_en, p.flags.int_pend);
+#endif
 }
 

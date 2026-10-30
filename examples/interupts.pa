@@ -1,0 +1,96 @@
+/ Interupt example,
+/ Fig 5-15, DEC Introduction to Programing1970
+
+/ Interrupt Service Routine
+*0
+	0		/ Return address
+	JMP I 2
+	SERV
+
+/ Initialize
+*200
+START,	CLA CLL		/ Set input mode
+	DCA MODE
+
+	TAD K1777	/ Initialize buffer
+	DCA BUFFER
+	ION		/ Enable interrupts
+
+/ Main program
+ROTATE,	CLA CLL IAC	/ Set one bit in ACC
+	ISZ COUNT	/ Delay
+	JMP .-1
+/	ISZ COUNT
+/	JMP .-1
+
+	RAL		/ Rotate
+	JMP ROTATE+1	/ Repeat...
+
+/ Interupt Service Routine (ISR)...
+SERV,	DCA AC		/ Save state
+	RAL
+	DCA L
+
+	KSF		/ Keyboard interrupt?
+	SKP		/ No, check printer
+	JMP KB		/ Yes, service the keyboard
+
+	TSF		/ Printer interrupt?
+	SKP		/ No, skip printer routine
+	JMP TP		/ Yes, service printer
+	HLT		/ Spurious Interrupt!
+
+/ Keyboard input routine
+KB,	KCC		/ Clear ready flag
+	TAD MODE	/ Input mode?
+	SZA CLA
+	JMP EXIT	/ No, return from interrupt
+
+	ISZ BUFFER	/ Increment the buffer pointer
+	KRB		/ Read the character
+	TLS		/ Echo to the printer
+	DCA I BUFFER	/ Store in buffer
+	TAD I BUFFER	/ Is character a '.'
+	TAD NPER
+	SZA CLA
+	JMP EXIT	/ No, return from interrupt
+
+	TAD K1777	/ Yes, reset the buffer
+	DCA BUFFER
+	CLA CMA		/ Set output mode
+	DCA MODE
+	JMP EXIT
+
+/ Printer output routine
+TP,	TCF		/ Clear ready flag
+	TAD MODE	/ Output mode?
+	SNA CLA
+	JMP EXIT	/ No, return from interrupt
+
+	ISZ BUFFER	/ Yes, increment buffer
+	TAD I BUFFER	/ Print the next character
+	TLS
+
+	TAD NPER	/ Is a a period?
+	SZA CLA
+	JMP EXIT	/ No, return from interrupt
+
+	DCA MODE	/ Yes, input mode
+	TAD K1777	/ Reset buffer, and
+	DCA BUFFER
+/	JMP EXIT	/ Return from interrupt, Redundent?
+
+EXIT, 	TAD L		/ Restore state
+	CLL RAR
+	TAD AC
+	ION		/ Reenable interrupts
+	JMP I 0		/ Return from interrupt
+
+COUNT,	0		/ Rotate Delay
+MODE,	0		/ Interrupt mode; 0 input, 1 output
+K1777,	1777		/ Location of keyboard buffer
+BUFFER,	0		/ Buffer pointer
+L,	0		/ Saved L
+AC,	0		/ Saved AC
+NPER,	-256		/ Negative period for compair
+$

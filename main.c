@@ -88,7 +88,7 @@ static void help() {
 	fprintf(stderr, "-h|?     -- print this message, and return 1\n");
 	fprintf(stderr, "-v       -- print the version, and return 1\n");
 	fprintf(stderr, "\n");
-	fprintf(stderr, "And where filenames is zero or more program file names to load in BIN format\n");
+	fprintf(stderr, "Filenames is zero or more program file names to load in BIN format\n");
 }
 
 /********************************************************************************************//**
@@ -96,7 +96,7 @@ static void help() {
  ************************************************************************************************/
 int main (int argc, char** argv) {
 	if (pdp8_init() != 0)
-		return 1;
+		return EXIT_FAILURE;
 
 	// Scan the command line...
 	for (int argn = 1; argn < argc; ++argn) {
@@ -115,16 +115,16 @@ int main (int argc, char** argv) {
 				char c = arg[i];
 
 				switch(c) {
-					case '?': case 'h': help();			return 1;
-					case 'v': printf("version 0.9\n");	return 1;
+					case '?': case 'h': help();			return EXIT_FAILURE;
+					case 'v': printf("version 0.9\n");	return EXIT_FAILURE;
 					default:
 						fprintf(stderr, "%s: unknown option '%c'!\n", progName, c);
-						return 1;
+						return EXIT_FAILURE;
 				}
 			}
 
 		} else if (!load_BIN(arg))			// Load a program file...
-			return 1;
+			return EXIT_FAILURE;
 	}
 
 	return process();						// Run the simulation...

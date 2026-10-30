@@ -1,0 +1,32 @@
+/ Simple interrupt example, from
+/ Fig 5-15, DEC Introduction to Programing, 1970
+
+/ Interrupt Service Routine (ISR)
+*0
+INT,	0
+	DCA AC		/ Save state
+	RAL
+	DCA L
+
+	KSF		/ Keyboard interrupt?
+	SKP		/ No, return from interrupt
+	JMP KB		/ Yes, service the keyboard
+
+EXIT, 	TAD L		/ Restore state
+	CLL RAR
+	TAD AC
+	ION		/ Reenable interrupts
+	JMP I 0		/ Return from interrupt
+
+KB,	KRB		/ Read the character
+	TLS		/ Echo to the printer
+	JMP EXIT	/ No, return from interrupt
+
+L,	0		/ Saved L
+AC,	0		/ Saved AC
+
+/ Main program that just spins in a infinite loop
+*200
+ECHO2,	ION		/ Enable interrupts
+	JMP .
+$
