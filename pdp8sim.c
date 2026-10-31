@@ -475,16 +475,17 @@ static bool frontpanel() {
  *
  * @bug Do we need to register the SIGINT handler here?
  ************************************************************************************************/
-void signal_handler(int signal_num) {
+static void signal_handler(int signal_num) {
 	assert(signal_num ==  SIGINT);
 	(void) (signal_num);
 	p.flags.int_en = false;
+
+	fprintf(stderr, "\n%s: SIGINT/Halt!\n", progName);
 
 	if (signal(SIGINT, signal_handler) == SIG_ERR) {
 		fprintf(stderr, "%s: error registering SIGINT handler!\n", progName);
 		assert(false);
 	}
-	putchar('\n');					// So that the "^C" is on it's own line
 }
 
 /********************************************************************************************//**

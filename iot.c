@@ -8,6 +8,7 @@
 #include "pdp8sim.h"
 
 #include <assert.h>
+#include <errno.h>
 #include <signal.h>
 #include <stdio.h>
 #include <sys/select.h>
@@ -16,10 +17,10 @@
 #define	MPARITY			0200		// Set bit 7 for Mark parity
 #define	MPARITY_MASK	0177		// Clear bit 7 to clear Mark parity
 
-fd_set	read_fds;					// Read device ready flags
-fd_set	write_fds;					// Write device ready flags
+static fd_set	read_fds;			// Read device ready flags
+static fd_set	write_fds;			// Write device ready flags
 
-bool	ready[64] = { false };		// Device ready flags, indexed by device ID.
+static bool	ready[64] = { false };	// Device ready flags, indexed by device ID.
 
 /********************************************************************************************//**
  * Simulate an IOT instruction.
@@ -68,8 +69,9 @@ void iot() {
 		if (ops & 4) {				//	KRS
 			int c = 0;
 			int n = read(STDIN_FILENO, &c, 1);
-			if (n < 0) {
-				fprintf(stderr, "%s: read() error\n", progName);
+			if (n < 0) {		// Some other error
+				const int error = errno;
+				fprintf(stderr, "%s: read() error: %d\n", progName, error);
 				c = 0;
 			}
 			p.regs.ac = c | MPARITY;
@@ -122,10 +124,7 @@ void iot_update_devs() {
 	FD_ZERO(&write_fds);
 	FD_SET(STDOUT_FILENO, &write_fds);
 
-	if (FD_ISSET(STDIN_FILENO, &read_fds))
-		ready[3] = true;
-	if (FD_ISSET(STDOUT_FILENO, &write_fds))
-		ready[4] = true;
+	p.flags.int_pend = false;
 
 	/*
 	 * Select can intercept Ctrl-C (SIGINT) if it is the very first character,
@@ -133,8 +132,24 @@ void iot_update_devs() {
 	 */
 
 	const int r = select(STDOUT_FILENO+1, &read_fds, &write_fds, NULL, &timeout);
-	if (r > 0)
+	if (r > 0) {
+#if 1
+		if (FD_ISSET(STDIN_FILENO, &read_fds)) {
+			ready[3] = true;
+			p.flags.int_pend = true;
+
+			p.flags.run = false;
+			fprintf(stderr, "%d, %d: %b, %b\n", ready[3], ready[4], p.flags.int_en, p.flags.int_pend);
+		}
+#else
 		p.flags.int_pend = true;
+
+		if (FD_ISSET(STDIN_FILENO, &read_fds))
+			ready[3] = true;
+		if (FD_ISSET(STDOUT_FILENO, &write_fds))
+			ready[4] = true;
+#endif
+	}
 
 #if 0
 	fprintf(stderr, "%d, %d: %b, %b\n", ready[3], ready[4], p.flags.int_en, p.flags.int_pend);
