@@ -82,9 +82,8 @@ typedef struct Flags {
     bool        sinstr  	: 1;			// Front-panel single-instruction switch
 	bool		int_en		: 1;			// true if interrupts are inabled.
 	bool		int_pend	: 1;			// true if an interrupt is pending
-#if 0
 	bool		trace		: 1;			// Trace operation if true
-#endif
+
 } Flags;
 
 /************************************************************************************************
@@ -101,6 +100,7 @@ typedef struct PDP8 {
 	unsigned	nCycles;
 	unsigned	nInstr;
 	double		runtime;					// cumulative runtine in us.
+
 } PDP8;
 
 /********************************************************************************************//**

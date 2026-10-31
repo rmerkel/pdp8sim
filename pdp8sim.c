@@ -24,8 +24,6 @@
 
 PDP8	p;
 
-#undef	TRACE
-
 /********************************************************************************************//**
  ************************************************************************************************/
 static void ral() {
@@ -431,9 +429,7 @@ static bool frontpanel() {
 		fputs("[no]si[nstr] -- Single instruction\n", stdout);
 		fputs("[no]ss[tep]  -- Single step\n", stdout);
 		fputs("s[tart]      -- Start\n", stdout);
-#ifdef TRACE
 		fputs("[no]t[race]  -- Trace\n", stdout);
-#endif
 		fputs("q[uit]       -- Exit\n", stdout);
 		fputs("<return>     -- Repeat last command\n", stdout);
 		fputs("<ctrl-c>     -- Halt\n", stdout);
@@ -447,10 +443,8 @@ static bool frontpanel() {
 		p.flags.sinstr = false;
 	else if (strcmp(cmd, "noss") == 0)	// nosstep
 		p.flags.sstep = false;
-#ifdef TRACE
 	else if (strcmp(cmd, "not") == 0)	// notrace
 		p.flags.trace = false;
-#endif
 	else if (strcmp(cmd, "si") 	== 0)	// sinstr
 		p.flags.sinstr = true;
 	else if (strcmp(cmd, "ss")	== 0)	// sstep
@@ -462,10 +456,8 @@ static bool frontpanel() {
 		p.state					= Fetch;
 		p.flags.run 			= true;
 	}
-#ifdef	TRACE
 	else if (cmd[0] == 't')			// trace
 		p.flags.trace = true;
-#endif
 	else if (cmd[0] == 'q')
 		return true;					// quit
 	else if (digit(cmd))				// number (simple)
@@ -528,18 +520,17 @@ int process() {
 					// Until the next cycle is fetch, or halted, or single-step (state)
 				} while (p.flags.run && !p.flags.sstep && p.state != Fetch);
 
+				// Trace, but only if single-step isn't enabled.
+				if (p.flags.trace && !p.flags.sstep && !p.flags.sinstr) {
+					dumpState();
+    				putchar('\n');
+				}
+
 				// Until next state is Fetch, or halted, or single-step (instruction)
 			} while (p.flags.run && !p.flags.sinstr && !p.flags.sstep);
 
 			if (p.ion_delay && --p.ion_delay == 0)
 				p.flags.int_en  = true; // ION takes effect
-
-#ifdef	TRACE
-				if (p.flags.trace) {
-					dumpState();
-    				putchar('\n');
-				}
-#endif
 
 			if (p.flags.sstep || p.flags.sinstr)
 				p.flags.run = false;	// Enter idle mode

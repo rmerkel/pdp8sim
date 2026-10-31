@@ -24,6 +24,7 @@ typedef struct Registers {
 	unsigned	md	: 12;				///< Memory data register
 	unsigned	sr	: 12;				///< Switch register
 	OpCode		ir;
+
 } Registers;
 
 #ifdef	_cplusplus
