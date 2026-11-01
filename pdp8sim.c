@@ -555,6 +555,8 @@ int pdp8_init() {
 		return EXIT_FAILURE;
 	}
 
+	iot_init();
+
 	return EXIT_SUCCESS;
 }
 

@@ -11,6 +11,7 @@
 extern "C" {
 #endif
 
+void iot_init(void);
 void iot();
 void iot_disasm(unsigned instr);
 void iot_update_devs();
