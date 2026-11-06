@@ -351,7 +351,7 @@ static void dumpState() {
 	printf("%s ", 				State2Str(&p.state));
 	printf("%u instructions ",	p.nInstr);
 	printf("%u cycles ",  		p.nCycles);
-	printf("(%0.1f us)\n", 		p.runtime);
+	printf("(%0.7f s)\n", 		p.runtime_s);		// to the nearist 1/10th of a us (e-7)
 
 	if (p.state == Fetch) {
 		disasm(p.regs.pc, p.mem[p.regs.pc]);
@@ -455,6 +455,7 @@ static bool frontpanel() {
 		p.regs.ma 				= p.regs.pc = p.regs.sr;
 		p.state					= Fetch;
 		p.flags.run 			= true;
+		p.runtime_s				= 0.0;
 	}
 	else if (cmd[0] == 't')			// trace
 		p.flags.trace = true;
@@ -516,7 +517,7 @@ int process() {
                     }
 
 					++p.nCycles;
-					p.runtime += 1.5;	// 1.5us per cycle, except for IOT
+					p.runtime_s += 1.5e-6;	// 1.5us per cycle, except for IOT
 
 					// Until the next cycle is fetch, or halted, or single-step (state)
 				} while (p.flags.run && !p.flags.sstep && p.state != Fetch);
@@ -527,14 +528,23 @@ int process() {
     				putchar('\n');
 				}
 
+#if 1
+				if (p.ion_delay && --p.ion_delay == 0)
+					p.flags.int_en  = true; // ION takes effect
+
+				if (p.flags.sstep || p.flags.sinstr)
+					p.flags.run = false;	// Enter idle mode
+#endif
 				// Until next state is Fetch, or halted, or single-step (instruction)
 			} while (p.flags.run && !p.flags.sinstr && !p.flags.sstep);
 
+#if 0
 			if (p.ion_delay && --p.ion_delay == 0)
 				p.flags.int_en  = true; // ION takes effect
 
 			if (p.flags.sstep || p.flags.sinstr)
 				p.flags.run = false;	// Enter idle mode
+#endif
 
 		} else if (frontpanel())		// Idle mode, check "front-panel"
 			return EXIT_SUCCESS;		// Quit

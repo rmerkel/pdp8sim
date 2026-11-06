@@ -27,6 +27,11 @@ static fd_set	write_fds;			// Write device ready flags
 typedef struct iot_dev {			// IO Device interface
 	unsigned	id;					//	Device ID
 	bool		rdy;				//	Device ready flag
+#if 0
+	bool		rdy_pend;			//	Device ready pending
+	double		rdy_delay_s;		//	Delay to ready time (secs)
+#endif
+
 									//	Initialize the device
 	void		(*init)(struct iot_dev* pdev);
 									//	Interact with the device
@@ -43,138 +48,175 @@ typedef struct iot_dev {			// IO Device interface
 // Device table
 static iot_dev dev_tbl[IOT_DEV_CNT];
 
+// iops(ops)?
+static bool iops(unsigned ops) {
+	return ops & 1;
+}
+
+// iop2(ops)?
+static bool iop2(unsigned ops) {
+	return ops & 2;
+}
+
+// iop3?
+static bool iop4(unsigned ops) {
+	return ops & 4;
+}
+
 /********************************************************************************************//**
  * System Device (SYS, device id 0)
  ************************************************************************************************/
 
-// init
+// SYS init
 static void sys_init(iot_dev* pdev) {
 	assert(pdev != NULL);
 
 	pdev->rdy = false;			// Unused by the SYS device
+//	pdev->rdy_delay_s = 0.0;
 }
 
-// iot
+// SYS iot
 static void sys_iot(iot_dev* pdev, unsigned ops) {
 	assert(pdev != NULL);
 
-	const bool iop1 = ops & 1;
-	const bool iop2 = ops & 2;
-	const bool iop4 = ops & 4;
-
-	if (iop1)					// ION
+	if (ops == 1)				// ION
 		p.ion_delay = ION_DELAY;
 
-	if (iop2) {					// IOF
+	else if (ops == 2) {		// ION
 		p.ion_delay = 0;
 		p.flags.int_en = false;
-	}
 
-	if (iop4 || (iop1 && iop2)) {
+	} else {
 		fprintf(stderr, "unknown iot system operation: %03o %03o!\n", pdev->id, ops);
 		assert(false);
 	}
 }
 
-// update
+// SYS update
 static void sys_update(iot_dev* pdev) {	assert(pdev != NULL);	}
 
-// make ready
+// SYS make ready
 static void sys_ready(iot_dev* pdev) {	assert(pdev != NULL);	}
 
 /********************************************************************************************//**
- * TTY Keyboard/paper-tape punch device
+ * TTY Keyboard/Paper-Tape Reader
  ************************************************************************************************/
 
-// init
+#define	TTY_RATE_cps	10
+#define	TTY_RDY_DELAY	(1.0/TTY_CHAR_RATE)	/* Delay in seconds			*/
+
+// TTY Keyboard init
 static void tty_kb_init(iot_dev* pdev) {
 	assert(pdev != NULL);
 
 	pdev->rdy = false;
+#if 0
+	pdev->rdy_pend = false;
+	pdev->rdy_delay_s = p.runtime_s - TTY_RDY_DELAY;
+#endif
 }
 
-// iot
+// TTY Keyboard IOT
 static void tty_kb_iot(iot_dev* pdev, unsigned ops) {
 	assert(pdev != NULL);
 
-	const bool iop1 = ops & 1;
-	const bool iop2 = ops & 2;
-	const bool iop4 = ops & 4;
+	if (iops(ops))			//	KSF
+		++p.regs.pc;
 
-	if (iop1) {				//	KSF
-		if (pdev->rdy)
-			++p.regs.pc;
-	}
-
-	if (iop2)				//	KCC
+	if (iop2(ops))			//	KCC
 		pdev->rdy = false;
 
-	if (iop4) {				//	KRS
-		int c = 0;
-		int n = read(STDIN_FILENO, &c, 1);
-		if (n < 0) {		// Some other error
-			const int error = errno;
-			fprintf(stderr, "%s: read() error: %d, %03o %03o\n", progName, error, pdev->id, ops);
+	if (iop4(ops)) {		//	KRS
+		int c = EOF;
+		if (read(STDOUT_FILENO, &c, 1) == -1)
+			perror("read()");
+		if (c == EOF)
 			c = 0;
-		}
-		p.regs.ac = c | MPARITY;
+		else
+			p.regs.ac = c | MPARITY;
 	}
+
+#if 0
+		pdev->rdy_delay_s = p.runtime_s;	// Start the rate/delay timer
+#endif
 }
 
-// update
+// TTY Keyboard Update
 static void tty_kb_update(iot_dev* pdev) {
 	assert(pdev != NULL);
 }
 
-// make ready
+// TTY Keyboard make ready
 static void tty_kb_ready(iot_dev* pdev) {
 	assert(pdev != NULL);
 
 	p.flags.int_pend = pdev->rdy = true;
+
+#if 0
+	if (pdev->rdy_pend)
+		if (pdev->rdy_delay_s - p.runtime_s > TTY_DELAY_RATE) {
+			p.flags.int_pend = pdev->rdy = true;
+		}
+#endif
 }
 
 /********************************************************************************************//**
  * TTY Printer/Punch Device
  ************************************************************************************************/
 
-// init
+// TTY Printer/Punch Init
 static void tty_pr_init(iot_dev* pdev) {
 	assert(pdev != NULL);
 
 	pdev->rdy = false;
+#if 0
+	pdev->rdy_pend = false;
+	pdev->rdy_delay_s = p.runtime_s - TTY_RDY_DELAY;
+#endif
 }
 
-// iot
+// TTY Printer/Paper-Tape Punch IOT
 static void tty_pr_iot(iot_dev* pdev, unsigned ops) {
 	assert(pdev != NULL);
 
-	const bool iop1 = ops & 1;
-	const bool iop2 = ops & 2;
-	const bool iop4 = ops & 4;
-
-	if (iop1 && pdev->rdy)		// TSF
+	if (iops(ops) && pdev->rdy)	// TSF
 		++p.regs.pc;
 
-	if (iop2)					//	TCF
+	if (iop2(ops)) 				//	TCF
 		pdev->rdy = false;
 			
-	if (iop4) {					// 	TPC
+	if (iop4(ops)) {			// 	TPC
 		if (p.regs.ac !=0) {
 			int c = p.regs.ac & MPARITY_MASK;
-			write(STDOUT_FILENO, &c, 1);
+			if (write(STDOUT_FILENO, &c, 1) == -1)
+				perror("write()");
 		}
+		pdev->rdy = true;
 	}
+
+#if 0
+		p.flags.int_pend = pdev->rdy_pend = true;
+		pdev->rdy_delay_s = p.runtime_s;
+#endif
 }
 
-// update
+// TTY Printer/Punch Update
 static void tty_pr_update(iot_dev* pdev) {
 	assert(pdev != NULL);
+
+#if 0
+	if (pdev->rdy_pend) {
+		if (p.runtime_s - pdev->rdy_delay_s > TTY_RDY_DELAY) {
+			pdev->rdy = true;
+			pdev->rdy_pend = false;
+			p.flags.int_pend = true;
+		}
+	}
+#endif
 }
 
-// make ready
+// TTY Printer/Punch Make Ready. Ignored
 static void tty_pr_ready(iot_dev* pdev) {
-	p.flags.int_pend = pdev->rdy = true;
-
 	assert(pdev != NULL);
 }
 
@@ -182,14 +224,14 @@ static void tty_pr_ready(iot_dev* pdev) {
  * Unsupported Device
  ************************************************************************************************/
 
-// init
+// Unsupported Device init
 static void unsupported_init(iot_dev* pdev)	{
 	assert(pdev != NULL);
 
 	pdev->rdy = false;				// Unused
 }
 
-// iot
+// Unsupported Device iot
 static void unsupported_iot(iot_dev* pdev, unsigned ops) {
 	assert(pdev != NULL);
 
@@ -198,10 +240,10 @@ static void unsupported_iot(iot_dev* pdev, unsigned ops) {
 #endif
 }
 
-// update
+// Unsupported Device update
 static void unsupported_update(iot_dev* pdev)	{	assert(pdev != NULL);	}
 
-// make ready
+// Unsupported Device make ready
 static void unsupported_ready(iot_dev* pdev) {
 	assert(pdev != NULL);
 
@@ -227,7 +269,7 @@ void iot() {
 
 	iot_dev* pdev = dev_tbl + dev;
 	pdev->iot(pdev, ops);
-	p.runtime += 4.5 - 1.5;			// Adjust for IOT
+	p.runtime_s += 4.5e-6 - 1.5e-6;			// Adjust for IOT
 }
 
 /********************************************************************************************//**
@@ -258,18 +300,22 @@ void iot_update_devs() {
 	 * so treat select() errors as HALT.
 	 */
 
-	const int r = select(STDOUT_FILENO+1, &read_fds, &write_fds, NULL, &timeout);
+#if 1
+	const int r = select(STDIN_FILENO+1, &read_fds, NULL, NULL, &timeout);
 	if (r > 0) {
-#if 1	// Just support the keyboard for now...
 		if (FD_ISSET(STDIN_FILENO, &read_fds)) {
 			dev_tbl[3].ready(&dev_tbl[3]);
+		}
+
+#else
+
+	const int r = select(STDOUT_FILENO+1, &read_fds, &write_fds, NULL, &timeout);
+	if (r > 0) {
 
 #	if 0
 			p.flags.run = false;
 			fprintf(stderr, "%b, %b: %b\n", dev_tbl[3].rdy, p.flags.int_en, p.flags.int_pend);
 #	endif
-		}
-#else
 		// @tbd Possible to have a fds bit translate to IO device ID here.
 
 		if (FD_ISSET(STDIN_FILENO, &read_fds))
@@ -289,37 +335,45 @@ void iot_update_devs() {
  ************************************************************************************************/
 void iot_init(void) {
 	// SYS device
+	dev_tbl[0].id		= 0;
 	dev_tbl[0].init 	= sys_init;
 	dev_tbl[0].iot		= sys_iot;
 	dev_tbl[0].update	= sys_update;
 	dev_tbl[0].ready 	= sys_ready;
 
 	// Highspeed Perforated Tape Reader PR8/I
+	dev_tbl[1].id		= 1;
 	dev_tbl[1].init		= unsupported_init;
 	dev_tbl[1].iot		= unsupported_iot;
 	dev_tbl[1].update	= unsupported_update;
 	dev_tbl[1].ready	= unsupported_update;
 
 	// Highspeed Perforated Tape Punch  PR8/I
+	dev_tbl[2].id		= 2;
 	dev_tbl[2].init		= unsupported_init;
 	dev_tbl[2].iot		= unsupported_iot;
 	dev_tbl[2].update	= unsupported_update;
 	dev_tbl[2].ready	= unsupported_ready;
 
 	// TTY keyboard
+	dev_tbl[3].id		= 3;
 	dev_tbl[3].init		= tty_kb_init;
 	dev_tbl[3].iot		= tty_kb_iot;
 	dev_tbl[3].update	= tty_kb_update;
 	dev_tbl[3].ready	= tty_kb_ready;
 
 	// TTY printer
+	dev_tbl[4].id		= 4;
 	dev_tbl[4].init		= tty_pr_init;
 	dev_tbl[4].iot		= tty_pr_iot;
 	dev_tbl[4].update	= tty_pr_update;
 	dev_tbl[4].ready	= tty_pr_ready;
 
 	// The remainder are undefined
-	for (iot_dev* pdev = &dev_tbl[5]; pdev < &dev_tbl[IOT_DEV_CNT]; ++pdev) {
+	for (unsigned id = 5; id < IOT_DEV_CNT; ++id) {
+
+		iot_dev* pdev = &dev_tbl[id];
+		pdev->id		= id;
 		pdev->init		= unsupported_init;
 		pdev->iot		= unsupported_iot;
 		pdev->update	= unsupported_update;

@@ -99,7 +99,7 @@ typedef struct PDP8 {
 	unsigned    mem[4096];
 	unsigned	nCycles;
 	unsigned	nInstr;
-	double		runtime;					// cumulative runtine in us.
+	double		runtime_s;					// cumulative runtine, in seconds
 
 } PDP8;
 
