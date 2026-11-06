@@ -500,9 +500,7 @@ int process() {
 			do {						// Next instruction (mem[pc])
 				iot_update_devs();
 
-#if 0
-				fprintf(stderr, "en %d, pend %d\n", p.flags.int_en, p.flags.int_pend);
-#endif
+				p.flags.int_pend = iot_int_pending();
 
 				do {					// Next memory cycle
                 	switch(p.state) {
