@@ -1,7 +1,7 @@
 /********************************************************************************************//**
  * @file sys.c
  * 
- * pdp-8 SYS device
+ * pdp-8 SYStem device
  ************************************************************************************************/
 
 #include "iot.h"
@@ -13,11 +13,17 @@
 #include <stddef.h>
 #include <stdio.h>
 
-/********************************************************************************************//**
- * System Device (SYS, device id 0)
+/************************************************************************************************
+ * System Device (SYS), device id 0)
+ *
+ * Note that ION is delayed by ION_DELAY instructions, including the ION instruction. This allows
+ * a return from interrupt to work correctly, e.g.,
+ *
+ *     	ION		/ Enable interrupts AFTER the following instruction
+ *		JMS I 0	/ Return from interrupt
  ************************************************************************************************/
 
-// SYS init
+// Initialize the SYS device
 void sys_init(iot_dev* pdev) {
 	assert(pdev != NULL);
 
@@ -25,7 +31,7 @@ void sys_init(iot_dev* pdev) {
 	pdev->rdy_delay_s = 0.0;
 }
 
-// SYS iot
+// Process an IOT instruction on the SYS device
 void sys_iot(iot_dev* pdev, unsigned ops) {
 	assert(pdev != NULL);
 
@@ -42,9 +48,6 @@ void sys_iot(iot_dev* pdev, unsigned ops) {
 	}
 }
 
-// SYS update
-void sys_update(iot_dev* pdev)	{	assert(pdev != NULL);	}
-
-// SYS make ready
+// Make the SYS device ready
 void sys_ready(iot_dev* pdev)	{	assert(pdev != NULL);	}
 

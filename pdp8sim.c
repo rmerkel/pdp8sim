@@ -498,7 +498,7 @@ int process() {
     for (;;) {
 		if (p.flags.run) {				// Running?
 			do {						// Next instruction (mem[pc])
-				iot_update_devs();
+				iot_update();
 
 				p.flags.int_pend = iot_int_pending();
 

@@ -7,6 +7,7 @@
 #ifndef	IOT_H
 #define	IOT_H
 
+#include "iot.h"
 #include <stdbool.h>
 
 #ifdef	_cplusplus
@@ -14,7 +15,7 @@ extern "C" {
 #endif
 
 /********************************************************************************************//**
- * An IOT Device
+ * A PDP-8 IOT Device
  ************************************************************************************************/
 typedef struct iot_dev {			// IO Device interface
 	unsigned	id;					//	Device ID
@@ -26,9 +27,7 @@ typedef struct iot_dev {			// IO Device interface
 	void		(*init)(struct iot_dev* pdev);
 									//	Interact with pdev with contents of ops
 	void		(*iot)(struct iot_dev* pdev, unsigned ops);
-									//	Update pdev
-	void		(*update)(struct iot_dev* pdev);
-									//	Set the pdev ready
+									//	Make pdev ready
 	void		(*mk_rdy)(struct iot_dev* pdev);
 
 } iot_dev;
@@ -42,7 +41,7 @@ void iot_init(void);
 bool iot_int_pending(void);
 void iot(void);
 void iot_disasm(unsigned instr);
-void iot_update_devs(void);
+void iot_update(void);
 
 #ifdef	_cplusplus
 }

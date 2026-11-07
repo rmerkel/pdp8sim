@@ -17,21 +17,27 @@
 #define	TTY_CHAR_RATE	10					/* in characters/second		*/
 #define	TTY_RDY_DELAY	(1.0/TTY_CHAR_RATE)	/* Delay in seconds			*/
 
-/********************************************************************************************//**
- * TTY Keyboard/Paper-Tape Reader
+/************************************************************************************************
+ * TTY Keyboard/Paper-Tape Reader, device id 3.
  ************************************************************************************************/
 
-
-// TTY Keyboard init
+// Initialize the TTY Keyboard
 void tty_kb_init(iot_dev* pdev) {
 	assert(pdev != NULL);
 
 	pdev->rdy = false;
-	pdev->rdy_pend = true;					// So that initial rdy isn't delayed.
+
+	/*
+	 * The keyboard starts life ready-pending becuase it only needs the arrival
+	 * of a new character to become ready. Thus ready-delay is one TTY delay in
+	 * the past.
+	 */
+
+	pdev->rdy_pend = true;
 	pdev->rdy_delay_s = p.runtime_s - TTY_RDY_DELAY;
 }
 
-// TTY Keyboard IOT
+// Process a IOT instruction for the TTY Keyboard
 void tty_kb_iot(iot_dev* pdev, unsigned ops) {
 	assert(pdev != NULL);
 
@@ -57,12 +63,7 @@ void tty_kb_iot(iot_dev* pdev, unsigned ops) {
 	}
 }
 
-// TTY Keyboard Update
-void tty_kb_update(iot_dev* pdev) {
-	assert(pdev != NULL);
-}
-
-// TTY Keyboard make ready
+// Make the TTY Keyboard ready
 void tty_kb_ready(iot_dev* pdev) {
 	assert(pdev != NULL);
 
@@ -74,20 +75,26 @@ void tty_kb_ready(iot_dev* pdev) {
 	}
 }
 
-/********************************************************************************************//**
- * TTY Printer/Punch Device
+/************************************************************************************************
+ * TTY Printer/Paper-Tape Punch, device id #4.
  ************************************************************************************************/
 
-// TTY Printer/Punch Init
+// Initialize the TTY Printer/Paper-Tape Punch
 void tty_pr_init(iot_dev* pdev) {
 	assert(pdev != NULL);
 
 	pdev->rdy = false;
+
+	/*
+	 * The printer first becomes ready once the first character is printed. Thus
+	 * ready-pending is false.
+     */
+	
 	pdev->rdy_pend = false;
 	pdev->rdy_delay_s = p.runtime_s;
 }
 
-// TTY Printer/Paper-Tape Punch IOT
+// Process a IOT instruction for the TTY Printer/Paper-Tape Punch
 void tty_pr_iot(iot_dev* pdev, unsigned ops) {
 	assert(pdev != NULL);
 
@@ -109,12 +116,7 @@ void tty_pr_iot(iot_dev* pdev, unsigned ops) {
 	}
 }
 
-// TTY Printer/Punch Update
-void tty_pr_update(iot_dev* pdev) {
-	assert(pdev != NULL);
-}
-
-// TTY Printer/Punch Make Ready.
+// Make the TTY Printer/Paper-Tape Punch Ready.
 void tty_pr_ready(iot_dev* pdev) {
 	assert(pdev != NULL);
 
